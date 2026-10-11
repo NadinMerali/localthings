@@ -6,10 +6,14 @@ same shape under different field names."""
 from __future__ import annotations
 
 import datetime
+import json
+from pathlib import Path
 
 import pytest
 
 from custom_components.localthings.registry.capabilities import fridge
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 # #599's AILITE_REF_25K: 21:00 UTC at +03:00 is midnight, for 360 minutes.
 _CABINET = {
@@ -110,3 +114,25 @@ class TestIceNightWindow:
 
         assert not _desc(cap, "ice_night_start").exists_fn(rep, {})
         assert not _desc(cap, "ice_night_end").exists_fn(rep, {})
+
+    def test_the_end_needs_the_start_it_is_worked_out_from(self):
+        rep = {"ice.night.status": "Off", "ice.night.duration": "360"}
+
+        assert not _desc(fridge.ICEMAKER_NIGHTTIME, "ice_night_end").exists_fn(rep, {})
+
+    def test_a_stub_at_discovery_keeps_both_entities(self):
+        """A warm-tier href can be a bare stub until its first sub-poll."""
+        stub = {"href": "/icemaker/nighttime/vs/0"}
+        cap = fridge.ICEMAKER_NIGHTTIME
+
+        assert _desc(cap, "ice_night_start").exists_fn(stub, {})
+        assert _desc(cap, "ice_night_end").exists_fn(stub, {})
+
+    def test_a_populated_fixture_window_reads_in_its_own_offset(self):
+        """The TP1X_REF_21K airfilter dump: 12:00 UTC at +09:00, 540 minutes."""
+        rep = json.loads((FIXTURES / "refrigerator_tp1x_ref_21k_airfilter_device.json").read_text())
+        ice = next(r["rep"] for r in rep["device0"] if r.get("href") == "/icemaker/nighttime/vs/0")
+        cap = fridge.ICEMAKER_NIGHTTIME
+
+        assert _desc(cap, "ice_night_start").rep_fn(ice) == datetime.time(21, 0)
+        assert _desc(cap, "ice_night_end").rep_fn(ice) == datetime.time(6, 0)

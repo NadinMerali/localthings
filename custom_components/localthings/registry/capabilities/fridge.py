@@ -757,7 +757,6 @@ class _NightWindow:
         )
 
     def start_write(self, p, rep, href=None):
-        # p is local time; subtract offset to get UTC for storage
         utc_dt = datetime.datetime.combine(datetime.date.today(), p) - _tz_offset(rep, self.offset)
         try:
             new_dt = datetime.datetime.fromisoformat(rep.get(self.start) or "").replace(
@@ -768,7 +767,7 @@ class _NightWindow:
         return list(self.path), {self.start: new_dt.strftime("%Y-%m-%dT%H:%M:%S")}
 
     def end_write(self, p, rep, href=None):
-        # duration = end_local - start_local; offset cancels so work in local time
+        # The offset cancels out, so the duration is worked out in local time.
         start_t = self.start_value(rep)
         if start_t is None:
             return None
@@ -803,7 +802,7 @@ ICEMAKER_NIGHTTIME = Capability(
             entity_category="config",
             value_fn=lambda v: v == "On",
             write_fn=lambda p, rep, href=None: (
-                ["icemaker", "nighttime", "vs", "0"],
+                list(_ICE_NIGHT.path),
                 {"ice.night.status": "On" if p == "On" else "Off"},
             ),
         ),
@@ -812,7 +811,7 @@ ICEMAKER_NIGHTTIME = Capability(
             field="",
             icon="mdi:clock-start",
             entity_category="config",
-            exists_fn=lambda rep, resources: "ice.night.starttime" in rep,
+            exists_fn=lambda rep, resources: is_stub_rep(rep) or _ICE_NIGHT.start in rep,
             rep_fn=_ICE_NIGHT.start_value,
             write_fn=_ICE_NIGHT.start_write,
         ),
@@ -821,7 +820,10 @@ ICEMAKER_NIGHTTIME = Capability(
             field="",
             icon="mdi:clock-end",
             entity_category="config",
-            exists_fn=lambda rep, resources: "ice.night.duration" in rep,
+            # The end is worked out from the start, so it needs both.
+            exists_fn=lambda rep, resources: (
+                is_stub_rep(rep) or (_ICE_NIGHT.start in rep and _ICE_NIGHT.duration in rep)
+            ),
             rep_fn=_ICE_NIGHT.end_value,
             write_fn=_ICE_NIGHT.end_write,
         ),
