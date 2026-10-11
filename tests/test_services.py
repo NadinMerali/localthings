@@ -10,6 +10,7 @@ multi-write sequencing, settle/verify_after, and the options-flow rewiring.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from unittest.mock import AsyncMock, patch
@@ -1348,3 +1349,139 @@ async def test_a_failed_subscribe_is_a_home_assistant_error(hass, coordinator, d
 
     assert err.value.translation_key == "debug_observe_failed"
     assert coordinator._observe._taps == {}
+
+
+async def test_a_relation_the_coordinator_is_still_setting_up_is_left_alone(
+    hass, coordinator, device_id
+):
+    """Between its subscribe burst and committing, the coordinator's hrefs
+    aren't in subscribed_hrefs yet; an unsubscribe then would retire its
+    fresh relation too."""
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    async def _coordinator_bursts(_delay):
+        coordinator._observe.subscribe_hrefs(fake, [_OBS_HREF])
+
+    with patch(_SLEEP_TARGET, new=_coordinator_bursts):
+        await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert fake.unsubscribed == []
+
+
+async def test_a_second_call_on_the_same_href_is_refused(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+    coordinator._observe.reserve_tap(_OBS_HREF, limit=10, isolate=False)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert err.value.translation_key == "observe_in_progress"
+    assert fake.get_calls == []
+    assert fake.subscribed == []
+
+
+async def test_a_push_under_a_query_stays_out_of_the_cache(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator, on_subscribe=[_OBS_PUSH])
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        response = await _call_observe(hass, device_id, href=f"{_OBS_HREF}?if=oic.if.baseline")
+
+    assert [n["rep"] for n in response["notifications"]] == [_OBS_PUSH]
+    assert not coordinator._cache.get(_OBS_HREF)
+
+
+async def test_a_plain_push_reaches_the_cache_as_any_notification_does(
+    hass, coordinator, device_id
+):
+    fake = _ObservingSession(coordinator, on_subscribe=[_OBS_PUSH])
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert coordinator._cache.get(_OBS_HREF) == _OBS_PUSH
+
+
+async def test_a_cancelled_call_still_unsubscribes(hass, coordinator):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    async def _cancelled(_delay):
+        raise asyncio.CancelledError
+
+    with patch(_SLEEP_TARGET, new=_cancelled), pytest.raises(asyncio.CancelledError):
+        await coordinator.async_observe_resource(_OBS_HREF, duration=10)
+
+    assert fake.unsubscribed == [_OBS_SEGS]
+    assert coordinator._observe._taps == {}
+
+
+async def test_a_push_before_the_subscription_is_not_recorded(hass, coordinator, device_id):
+    """The coordinator's own relation can push while this call waits for the
+    session; that is outside the window asked for."""
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+    coordinator._observe.subscribed_hrefs = {_OBS_HREF}
+    read = fake.read
+
+    def _read_then_push(path_segs, timeout=None, query=()):
+        fake.push(_OBS_HREF, {"early": True})
+        return read(path_segs, timeout=timeout, query=query)
+
+    with (
+        patch.object(fake, "read", side_effect=_read_then_push),
+        patch(_SLEEP_TARGET, new=_no_sleep),
+    ):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert response["notifications"] == []
+
+
+async def test_the_coordinator_subscribing_during_the_get_means_listen_only(
+    hass, coordinator, device_id
+):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+    read = fake.read
+
+    def _read_while_coordinator_subscribes(path_segs, timeout=None, query=()):
+        coordinator._observe.subscribed_hrefs = {_OBS_HREF}
+        return read(path_segs, timeout=timeout, query=query)
+
+    with (
+        patch.object(fake, "read", side_effect=_read_while_coordinator_subscribes),
+        patch(_SLEEP_TARGET, new=_no_sleep),
+    ):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert fake.subscribed == []
+    assert response["already_observed"] is True
+
+
+async def test_a_collection_get_keeps_its_list_body(hass, coordinator, device_id):
+    batch = [{"rt": ["oic.wk.col"]}, {"href": "/power/vs/0", "rep": {"p": "On"}}]
+    fake = _ObservingSession(coordinator)
+    fake.queue_get("/device/0", batch)
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        response = await _call_observe(hass, device_id, href="/device/0")
+
+    assert response["get"]["body"] == batch
+
+
+async def test_notifications_past_the_cap_are_counted_not_kept(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator, on_subscribe=[{"n": i} for i in range(3)])
+    coordinator._session = fake
+
+    with (
+        patch.object(LocalThingsCoordinator, "_OBSERVE_KEEP", 2),
+        patch(_SLEEP_TARGET, new=_no_sleep),
+    ):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert [n["rep"] for n in response["notifications"]] == [{"n": 0}, {"n": 1}]
+    assert response["truncated"] is True

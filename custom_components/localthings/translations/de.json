@@ -2204,6 +2204,9 @@
     "observe_query_while_observed": {
       "message": "{href} wird von dieser Integration bereits beobachtet und kann daher nicht erneut mit einer Abfrage beobachtet werden."
     },
+    "observe_in_progress": {
+      "message": "{href} wird bereits von einem anderen Aufruf beobachtet. Warte, bis er fertig ist."
+    },
     "debug_observe_failed": {
       "message": "Das Beobachten von {href} ist fehlgeschlagen: {error}"
     },

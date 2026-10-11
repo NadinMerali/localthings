@@ -2204,6 +2204,9 @@
     "observe_query_while_observed": {
       "message": "{href} wordt al door deze integratie geobserveerd en kan daarom niet opnieuw met een query worden geobserveerd."
     },
+    "observe_in_progress": {
+      "message": "{href} wordt al door een andere aanroep geobserveerd. Wacht tot die klaar is."
+    },
     "debug_observe_failed": {
       "message": "Observeren van {href} is mislukt: {error}"
     },

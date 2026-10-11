@@ -304,6 +304,9 @@
     "observe_query_while_observed": {
       "message": "Esta integración ya observa {href}, así que no se puede volver a observar con una consulta."
     },
+    "observe_in_progress": {
+      "message": "Otra llamada ya está observando {href}. Espera a que termine."
+    },
     "debug_observe_failed": {
       "message": "No se pudo observar {href}: {error}"
     },

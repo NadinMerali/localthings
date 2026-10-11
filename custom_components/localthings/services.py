@@ -251,7 +251,7 @@ async def _async_observe_resource(hass: HomeAssistant, call: ServiceCall) -> Ser
     observed = await coordinator.async_observe_resource(
         actual_href, query, call.data[ATTR_DURATION]
     )
-    code, rep = observed["get"]
+    code, rep, body = observed["get"]
     get_fields = set(rep)
     pushed_fields = {
         key for _t, body in observed["notifications"] if isinstance(body, dict) for key in body
@@ -265,6 +265,9 @@ async def _async_observe_resource(hass: HomeAssistant, call: ServiceCall) -> Ser
         "already_observed": observed["already_observed"],
         "session_dropped": observed["session_dropped"],
     }
+    # A Collection answers a list, which `rep` can't carry (issue #335).
+    if body is not None and not isinstance(body, dict):
+        result["get"]["body"] = body
     if query:
         result["query"] = list(query)
     if observed["truncated"]:

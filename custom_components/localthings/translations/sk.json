@@ -2204,6 +2204,9 @@
     "observe_query_while_observed": {
       "message": "{href} už táto integrácia sleduje, preto ho nemožno znova sledovať s dotazom."
     },
+    "observe_in_progress": {
+      "message": "{href} už sleduje iné volanie. Počkajte, kým skončí."
+    },
     "debug_observe_failed": {
       "message": "Sledovanie {href} zlyhalo: {error}"
     },

@@ -2204,6 +2204,9 @@
     "observe_query_while_observed": {
       "message": "{href}은(는) 이 통합에서 이미 관찰 중이므로 쿼리로 다시 관찰할 수 없습니다."
     },
+    "observe_in_progress": {
+      "message": "다른 호출이 이미 {href}을(를) 관찰하고 있습니다. 끝날 때까지 기다려 주세요."
+    },
     "debug_observe_failed": {
       "message": "{href} 관찰에 실패했습니다: {error}"
     },

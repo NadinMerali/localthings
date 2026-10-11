@@ -15,6 +15,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 import cbor2
 from smartthings_local.ocf.observe_refresh import ObserveRefreshTask
@@ -33,6 +34,20 @@ DEFAULT_SETTLE_S = 4.0
 GRACE_PERIOD_S = 15.0
 
 _OPTIONS_FIELD = "x.com.samsung.da.options"
+
+
+@dataclass
+class Tap:
+    """One observe_resource call's recording of an href's notifications.
+    `started` is stamped as the subscription goes out; nothing before it is
+    kept. `isolate` keeps what a query-qualified relation pushes out of the
+    cache, since another interface can push another shape."""
+
+    limit: int
+    isolate: bool
+    started: float | None = None
+    items: list[tuple[float, object]] = field(default_factory=list)
+    dropped: int = 0
 
 
 def _rep_diff(cached: dict, sweep: dict) -> dict:
@@ -114,19 +129,36 @@ class ObserveManager:
         self._refresh_task: ObserveRefreshTask | None = None
         self._refresh_stop: threading.Event | None = None
         self._refresh_thread: threading.Thread | None = None
-        # Per href, every notification seen while observe_resource listens,
-        # as (monotonic time, decoded body). Guarded by _notify_cond.
-        self._taps: dict[str, list[tuple[float, object]]] = {}
+        # observe_resource's recordings, at most one per href. Guarded by
+        # _notify_cond, like _attempting.
+        self._taps: dict[str, Tap] = {}
+        # Hrefs a subscribe burst has registered whose attempt hasn't been
+        # committed or abandoned yet, so not in subscribed_hrefs.
+        self._attempting: set[str] = set()
 
-    def start_tap(self, href: str) -> list[tuple[float, object]]:
-        """Record every notification for `href` until stop_tap, whatever
-        its shape, into the returned list."""
+    def reserve_tap(self, href: str, *, limit: int, isolate: bool) -> Tap | None:
+        """A recording for `href`, or None if another call already holds
+        one. It records nothing until start_tap."""
         with self._notify_cond:
-            return self._taps.setdefault(href, [])
+            if href in self._taps:
+                return None
+            tap = self._taps[href] = Tap(limit=limit, isolate=isolate)
+            return tap
 
-    def stop_tap(self, href: str) -> None:
+    def start_tap(self, tap: Tap) -> None:
         with self._notify_cond:
-            self._taps.pop(href, None)
+            tap.started = time.monotonic()
+
+    def release_tap(self, href: str, tap: Tap) -> None:
+        with self._notify_cond:
+            if self._taps.get(href) is tap:
+                del self._taps[href]
+
+    def coordinator_observes(self, href: str) -> bool:
+        """Whether this coordinator holds, or is setting up, a relation on
+        `href` -- one an unsubscribe of the path would also retire."""
+        with self._notify_cond:
+            return href in self.subscribed_hrefs or href in self._attempting
 
     def set_on_applied(self, callback: Callable[[str, dict, str], None]) -> None:
         """Hook run after every accepted rep, on the applying thread.
@@ -257,12 +289,19 @@ class ObserveManager:
         except Exception as e:
             self.log.warning("observe %s: cbor decode failed: %s", href, e)
             rep = None
+        isolated = False
         with self._notify_cond:
             tap = self._taps.get(href)
-            if tap is not None:
+            if tap is not None and tap.started is not None:
                 # Before the checks below: what was pushed is the point.
-                tap.append((time.monotonic(), payload if rep is None else rep))
-        if not isinstance(rep, dict):
+                if len(tap.items) < tap.limit:
+                    tap.items.append((time.monotonic(), payload if rep is None else rep))
+                else:
+                    tap.dropped += 1
+                isolated = tap.isolate and not (
+                    href in self.subscribed_hrefs or href in self._attempting
+                )
+        if isolated or not isinstance(rep, dict):
             return
         if self._resource_type_mismatch(href, rep):
             return
@@ -314,6 +353,7 @@ class ObserveManager:
         """
         with self._notify_cond:
             self._notified.clear()
+            self._attempting = set(hrefs)
         subscribed: set[str] = set()
         for href in hrefs:
             segs = [s for s in href.strip("/").split("/") if s]
@@ -356,6 +396,7 @@ class ObserveManager:
         with self._notify_cond:
             self.fallback_hrefs = set(subscribed) - self._notified
             self._stale_sweeps.clear()
+            self._attempting = set()
         self._set_mode(MODE_OBSERVE)
         self.start_refresh_task(session)
 
@@ -363,6 +404,8 @@ class ObserveManager:
         """Drop a failed or stale attempt: no subscriptions worth keeping."""
         self._stop_refresh_task()
         self.subscribed_hrefs = set()
+        with self._notify_cond:
+            self._attempting = set()
         self._set_mode(MODE_POLL)
 
     def try_enter_observe_mode(
