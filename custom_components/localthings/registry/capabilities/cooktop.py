@@ -216,46 +216,6 @@ COOKTOP_MODE = Capability(
 )
 
 
-def _is_nz36k7570r(rep, resources):
-    return (
-        resources.get("/information/vs/0", {}).get("x.com.samsung.da.description") == "TP6X_CT_16K"
-        and _option_value(rep.get("x.com.samsung.da.options"), "DeviceType") == "NV9300K-/AA2"
-    )
-
-
-def _renumbered_burners(entities, numbers):
-    """Rename burner slot entities to the numbers printed on the cooktop."""
-    for entity in entities:
-        if not entity.key.startswith("burner_"):
-            yield entity
-            continue
-        slot = entity.key.split("_")[1]
-        if (number := numbers.get(slot)) is not None:
-            yield dataclasses.replace(
-                entity,
-                key=entity.key.replace(f"burner_{slot}_", f"burner_{number}_", 1),
-                translation_placeholders={"number": number},
-            )
-
-
-# The NZ36K7570R's owner confirmed slots 0 and 1 are burners 1 and 2 (#609);
-# slots 3-5 keep their numbers and it reports no slot 2. Scoped to this one
-# model so no existing entity is renamed.
-TP6X_COOKTOP_MODE = dataclasses.replace(
-    COOKTOP_MODE,
-    match_fn=_is_nz36k7570r,
-    entities=tuple(
-        _renumbered_burners(
-            COOKTOP_MODE.entities, {"0": "1", "1": "2", "3": "3", "4": "4", "5": "5"}
-        )
-    ),
-)
-OPTIONS_COOKTOP_MODE = dataclasses.replace(
-    COOKTOP_MODE,
-    match_fn=lambda rep, resources: not _is_nz36k7570r(rep, resources),
-)
-
-
 # The diagnosis status only; the start command is untested on a cooktop.
 DIAGNOSIS = dataclasses.replace(
     dishwasher.DIAGNOSIS,
