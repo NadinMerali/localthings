@@ -109,7 +109,7 @@ About half of Samsung's appliances report their Wi-Fi MAC address. For those, Ho
 
 Some appliances from about 2018 to 2022 have a different local interface, HTTPS on TCP port 8888. So far this covers a WW6500 washer, TP6X air conditioners and an NV51K777OS Flex Duo wall oven. Setup detects the interface from the IP address and then asks for a **device token**. Leave the field empty and the appliance issues a token, sending it back to Home Assistant on port 8889. For that to work, switch Remote Control on at the appliance with the door closed, and make sure the appliance can reach Home Assistant on port 8889. If the appliance later rejects its token, Home Assistant asks for a new one.
 
-For the NZ36K7570R radiant electric cooktop (TP6X_CT_16K) and NV51K777OS Flex Duo wall oven, leave **Smart Connect** off before requesting a token in LocalThings, then switch it on after the request. On both tested appliances, starting with Smart Connect already on did not return a token.
+On the tested NZ36K7570R radiant electric cooktop (TP6X_CT_16K) and NV51K777OS Flex Duo wall oven, **if Smart Connect is already on, the token request will not return a token**. Switch Smart Connect **off first**, request the token in LocalThings, then switch Smart Connect **on**.
 
 On these appliances, a chosen cycle, temperature, rinse count or spin speed takes effect only when the cycle starts. The selects hold your choice, and the **Start** button sends it. If you turn the dial on the appliance, the dial's setting replaces the held choice.
 
