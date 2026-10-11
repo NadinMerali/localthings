@@ -176,8 +176,7 @@ LCD_OV_WALL: tuple[Resource, ...] = (
 )
 
 
-# NZ36K7570R (TP6X_CT_16K) and its Bluetooth hood bridge use the same
-# options vocabulary as the existing cooktop registry.
+# NZ36K7570R (TP6X_CT_16K) uses the existing cooktop options vocabulary.
 TP6X_CT: tuple[Resource, ...] = (
     Resource(
         endpoint="operation",

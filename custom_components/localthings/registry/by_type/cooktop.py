@@ -29,7 +29,6 @@ def _burner_list_board(rep, resources):
 _OPTIONS_POWER = dataclasses.replace(
     cooktop.COOKTOP_POWER,
     match_fn=lambda rep, resources: not _burner_list_board(rep, resources),
-    entities=tuple(dataclasses.replace(e, primary=True) for e in cooktop.COOKTOP_POWER.entities),
 )
 # POWER_VS_FALLBACK's own rule (the OCF-standard /power/0 wins) plus the
 # surface split.

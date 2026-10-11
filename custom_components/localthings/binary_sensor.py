@@ -30,8 +30,6 @@ class LocalThingsBinarySensor(LocalThingsEntity, BinarySensorEntity):
     def __init__(self, coordinator: LocalThingsCoordinator, bound) -> None:
         super().__init__(coordinator, bound)
         desc: BinarySensorDesc = bound.desc
-        if desc.primary:
-            self._attr_name = None
         self._attr_device_class = (
             BinarySensorDeviceClass(desc.device_class) if desc.device_class else None
         )

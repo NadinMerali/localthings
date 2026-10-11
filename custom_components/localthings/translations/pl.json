@@ -159,12 +159,6 @@
       },
       "cooktop_paused": {
         "name": "Wstrzymano"
-      },
-      "hood_bluetooth_enabled": {
-        "name": "Bluetooth okapu włączony"
-      },
-      "hood_interface_available": {
-        "name": "Interfejs okapu dostępny"
       }
     },
     "button": {
@@ -1632,18 +1626,6 @@
       },
       "burner_pan_size": {
         "name": "Rozmiar naczynia pola {number}"
-      },
-      "hood_bluetooth_state": {
-        "name": "Stan Bluetooth okapu"
-      },
-      "hood_shutoff_timer_set": {
-        "name": "Ustawienie minutnika wyłączenia okapu"
-      },
-      "hood_shutoff_timer_current": {
-        "name": "Odczyt minutnika wyłączenia okapu"
-      },
-      "hood_shutoff_timer_state": {
-        "name": "Stan minutnika wyłączenia okapu"
       }
     },
     "switch": {
@@ -2094,8 +2076,7 @@
           "settings": "Ustawienia urządzenia",
           "cloud_courses": "Pobrane cykle",
           "forget_learned_modes": "Zapomnij zapamiętane tryby",
-          "debug_write": "Debugowanie: zapis do zasobu",
-          "cooktop_display": "Widok płyty grzewczej"
+          "debug_write": "Debugowanie: zapis do zasobu"
         }
       },
       "settings": {
@@ -2166,13 +2147,6 @@
         "menu_options": {
           "cloud_guided": "Czekaj ponownie",
           "cloud_finish": "Zakończ"
-        }
-      },
-      "cooktop_display": {
-        "title": "Widok płyty grzewczej",
-        "description": "Pokaż jeden wiersz stanu na pole grzewcze, z poziomem mocy, stanem gorącej powierzchni i rozmiarem naczynia w atrybutach. Odczyty minutnika są dostępne w jego stanie. Osobne encje szczegółowe są wyłączane, więc korzystające z nich automatyzacje przestają otrzymywać aktualizacje. Wyłączenie tej opcji przywraca tylko encje wyłączone przez tę opcję.",
-        "data": {
-          "compact_cooktop": "Kompaktowa lista czujników"
         }
       }
     },

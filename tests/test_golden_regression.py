@@ -405,20 +405,6 @@ def test_registry_reproduces_golden_state_keys_for_tp1x_ref_21k_airfilter():
     )
 
 
-def test_registry_reproduces_golden_state_keys_for_range_hood_tp6x_ct_unpaired():
-    from tests.conftest import _load_device
-
-    name = "range_hood_tp6x_ct_unpaired"
-    resources = _load_device(name)
-    golden = json.loads((GOLDEN / f"{name}.json").read_text())
-    state_keys = _new_state_keys(name, resources)
-    assert set(state_keys) == set(golden["state_keys"]), (
-        f"state_keys mismatch:\n"
-        f"  extra:   {sorted(set(state_keys) - set(golden['state_keys']))}\n"
-        f"  missing: {sorted(set(golden['state_keys']) - set(state_keys))}"
-    )
-
-
 def test_registry_reproduces_golden_state_keys_for_range_hood():
     from tests.conftest import _load_device
 

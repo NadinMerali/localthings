@@ -3,9 +3,13 @@
 The captured options omit slot 2 and report pan sizes only for slots 3 and 5.
 """
 
+import pytest
+
+from custom_components.localthings.legacy_http import table_for, to_resources
 from custom_components.localthings.registry.adapter import flatten
 from custom_components.localthings.registry.by_type import resolve
 from custom_components.localthings.registry.discovery import discover
+from custom_components.localthings.registry.entities import BinarySensorDesc, SensorDesc
 from custom_components.localthings.registry.identity import device_display_name
 from tests.conftest import _load_device
 
@@ -73,3 +77,55 @@ def test_housekeeping_sensors():
     assert state["diagnosis_status"] == "ready"
     assert state["power_state"] is False
     assert state["remote_control"] is True
+
+
+@pytest.mark.parametrize("name", [NAME, "cooktop", "cooktop_nv9300k", "cooktop_nv8000t"])
+def test_options_array_cooktops_expose_only_read_only_entities(name):
+    resources = _load_device(name)
+    reg = resolve(resources)
+    assert reg is not None
+    bound = discover(resources, reg.capabilities, reg.pattern_capabilities)
+    assert bound
+    assert all(isinstance(entity.desc, (SensorDesc, BinarySensorDesc)) for entity in bound)
+
+
+def test_legacy_envelopes_bind_to_cooktop_sensors():
+    """Constructed envelopes exercise family selection and translation together."""
+    resources = to_resources(
+        {
+            "Operation": {"power": "Off", "kidsLock": "Run"},
+            "Mode": {
+                "options": [
+                    "DeviceType_NV9300K-/AA2",
+                    "OperationState0_Ready",
+                    "OperationState1_Ready",
+                    "PanSize3_Idle",
+                    "MainTimerSet_0",
+                ]
+            },
+            "Configuration": {"remoteControlEnabled": True},
+            "Information": {"modelID": "TP6X_CT_16K", "description": "TP6X_CT_16K"},
+            "Diagnosis": {"diagnosisStart": "Ready"},
+            "Alarms": [],
+        },
+        table_for("TP6X_CT_16K"),
+    )
+    reg = resolve(resources)
+    assert reg is not None and reg.name == "cooktop"
+    unbound = []
+    bound = discover(resources, reg.capabilities, reg.pattern_capabilities, log=unbound.append)
+    assert unbound == []
+    state = flatten(bound, resources)
+    assert state["power_state"] is False
+    assert state["child_lock"] is False
+    assert state["remote_control"] is True
+    assert state["cooktop_model"] == "NV9300K-/AA2"
+    assert state["burner_0_state"] == "Ready"
+    assert state["burner_3_pan_size"] == "Idle"
+    assert state["main_timer_set"] == 0
+    assert state["diagnosis_status"] == "ready"
+    assert state["alarm_code"] == "none"
+    assert "cooktop_paused" not in state
+    assert "cooktop_sync_flex" not in state
+    assert "cooktop_flex_coil" not in state
+    assert "diagnosis_start" not in state

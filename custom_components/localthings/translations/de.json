@@ -159,12 +159,6 @@
       },
       "cooktop_paused": {
         "name": "Pausiert"
-      },
-      "hood_bluetooth_enabled": {
-        "name": "Bluetooth der Dunstabzugshaube aktiviert"
-      },
-      "hood_interface_available": {
-        "name": "Dunstabzugshauben-Schnittstelle verfügbar"
       }
     },
     "button": {
@@ -1632,18 +1626,6 @@
       },
       "burner_pan_size": {
         "name": "Kochzone {number} Topfgröße"
-      },
-      "hood_bluetooth_state": {
-        "name": "Bluetooth-Status der Dunstabzugshaube"
-      },
-      "hood_shutoff_timer_set": {
-        "name": "Abschalttimer-Einstellung der Dunstabzugshaube"
-      },
-      "hood_shutoff_timer_current": {
-        "name": "Abschalttimer-Wert der Dunstabzugshaube"
-      },
-      "hood_shutoff_timer_state": {
-        "name": "Abschalttimer-Status der Dunstabzugshaube"
       }
     },
     "switch": {
@@ -2094,8 +2076,7 @@
           "settings": "Geräteeinstellungen",
           "cloud_courses": "Download-Programme",
           "debug_write": "Debug: In eine Ressource schreiben",
-          "forget_learned_modes": "Gemerkte Modi vergessen",
-          "cooktop_display": "Kochfeldanzeige"
+          "forget_learned_modes": "Gemerkte Modi vergessen"
         }
       },
       "settings": {
@@ -2166,13 +2147,6 @@
         "menu_options": {
           "cloud_guided": "Erneut warten",
           "cloud_finish": "Fertig"
-        }
-      },
-      "cooktop_display": {
-        "title": "Kochfeldanzeige",
-        "description": "Eine Statuszeile pro Kochzone anzeigen; Leistungsstufe, Restwärme und Topfgröße bleiben als Attribute verfügbar. Timerwerte stehen beim Timerstatus. Separate Detailsensoren werden deaktiviert; Automationen mit diesen Entitäten erhalten keine Aktualisierungen mehr. Beim Ausschalten werden nur die durch diese Option deaktivierten Entitäten wieder aktiviert.",
-        "data": {
-          "compact_cooktop": "Kompakte Sensorliste"
         }
       }
     },
