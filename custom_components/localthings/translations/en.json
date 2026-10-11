@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "The read from {href} failed: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "Duration must be more than 0 and at most {max} seconds."
+    },
+    "observe_not_supported": {
+      "message": "This appliance's interface doesn't support observing resources."
+    },
+    "observe_query_while_observed": {
+      "message": "{href} is already observed by this integration, so it can't be observed again with a query."
+    },
+    "debug_observe_failed": {
+      "message": "Observing {href} failed: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Provide between 1 and 10 writes."
     },

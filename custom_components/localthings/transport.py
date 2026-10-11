@@ -137,7 +137,9 @@ class Transport(Protocol):
         self, path_segs: Sequence[str], body: dict | list, timeout: float
     ) -> tuple[int, Any]: ...
 
-    def subscribe(self, path_segs: Sequence[str]) -> Any: ...
+    def subscribe(self, path_segs: Sequence[str], *, query: Sequence[str] = ()) -> Any: ...
+
+    def unsubscribe(self, path_segs: Sequence[str]) -> Any: ...
 
     def refresh_observes(self, paths: Sequence[Sequence[str]]) -> None: ...
 
@@ -248,8 +250,11 @@ class DtlsTransport:
         except Exception:
             return code, payload
 
-    def subscribe(self, path_segs: Sequence[str]) -> Any:
-        return self._live().subscribe(list(path_segs))
+    def subscribe(self, path_segs: Sequence[str], *, query: Sequence[str] = ()) -> Any:
+        return self._live().subscribe(list(path_segs), query=tuple(query))
+
+    def unsubscribe(self, path_segs: Sequence[str]) -> Any:
+        return self._live().unsubscribe(list(path_segs))
 
     def refresh_observes(self, paths: Sequence[Sequence[str]]) -> None:
         self._live().refresh_observes(paths)

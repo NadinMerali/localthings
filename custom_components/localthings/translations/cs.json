@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "Čtení z {href} selhalo: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "Doba musí být větší než 0 a nejvýše {max} sekund."
+    },
+    "observe_not_supported": {
+      "message": "Rozhraní tohoto spotřebiče nepodporuje sledování prostředků."
+    },
+    "observe_query_while_observed": {
+      "message": "{href} už tato integrace sleduje, proto ho nelze sledovat znovu s dotazem."
+    },
+    "debug_observe_failed": {
+      "message": "Sledování {href} selhalo: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Zadejte 1 až 10 zápisů."
     },

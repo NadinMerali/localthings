@@ -4,7 +4,9 @@ reverse-engineering a device's write contract, as an ordered multi-write
 sequence with settle delays and a delayed re-read, which the single-write
 options-flow debug panel can't express. Both raw services sit on the same
 coordinator primitives the panel now calls too (config_flow.py), so there
-is exactly one code path that performs a raw write.
+is exactly one code path that performs a raw write. `observe_resource`
+(issue #607) is the same kind of escape hatch for OBSERVE: it listens to one
+resource for a while, to find fields a board only pushes.
 
 Kept thin on purpose: session/lock ownership lives on the coordinator
 (coordinator.py). This module only resolves the service call's device
@@ -24,7 +26,13 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.util.unit_conversion import TemperatureConverter
 
-from .const import DOMAIN, SERVICE_READ_RESOURCE, SERVICE_START_COOKING, SERVICE_WRITE_RESOURCE
+from .const import (
+    DOMAIN,
+    SERVICE_OBSERVE_RESOURCE,
+    SERVICE_READ_RESOURCE,
+    SERVICE_START_COOKING,
+    SERVICE_WRITE_RESOURCE,
+)
 from .coordinator import LocalThingsCoordinator, normalize_href, split_href_query
 from .registry.capabilities import cook
 from .registry.encode import json_safe
@@ -79,6 +87,14 @@ _READ_RESOURCE_SCHEMA = vol.Schema(
     }
 )
 
+# The duration's range is checked on the coordinator, like write_resource's.
+_OBSERVE_RESOURCE_SCHEMA = vol.Schema(
+    {
+        **cv.TARGET_SERVICE_FIELDS,
+        vol.Required(ATTR_HREF): str,
+        vol.Optional(ATTR_DURATION, default=30.0): vol.Coerce(float),
+    }
+)
 
 _START_COOKING_SCHEMA = vol.Schema(
     {
@@ -227,6 +243,35 @@ async def _async_read_resource(hass: HomeAssistant, call: ServiceCall) -> Servic
     return cast(ServiceResponse, json_safe(read_result))
 
 
+async def _async_observe_resource(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
+    coordinator, subdevice, _device_id = _resolve_target(hass, call)
+    path, query = split_href_query(call.data[ATTR_HREF])
+    canonical = normalize_href(path)
+    actual_href = subdevice.to_actual(canonical)
+    observed = await coordinator.async_observe_resource(
+        actual_href, query, call.data[ATTR_DURATION]
+    )
+    code, rep = observed["get"]
+    get_fields = set(rep)
+    pushed_fields = {
+        key for _t, body in observed["notifications"] if isinstance(body, dict) for key in body
+    }
+    result: dict[str, Any] = {
+        "href": canonical,
+        "actual_href": actual_href,
+        "get": {"code": f"{code >> 5}.{code & 0x1F:02d}", "rep": rep},
+        "notifications": [{"t": t, "rep": body} for t, body in observed["notifications"]],
+        "fields_only_in_notifications": sorted(pushed_fields - get_fields),
+        "already_observed": observed["already_observed"],
+        "session_dropped": observed["session_dropped"],
+    }
+    if query:
+        result["query"] = list(query)
+    if observed["truncated"]:
+        result["truncated"] = True
+    return cast(ServiceResponse, json_safe(result))
+
+
 async def _async_start_cooking(hass: HomeAssistant, call: ServiceCall) -> None:
     coordinator, subdevice, _device_id = _resolve_target(hass, call)
     temperature = call.data.get(ATTR_TEMPERATURE)
@@ -250,8 +295,8 @@ async def _async_start_cooking(hass: HomeAssistant, call: ServiceCall) -> None:
 
 
 def async_setup_services(hass: HomeAssistant) -> None:
-    """Register start_cooking (issue #473) and write_resource/read_resource
-    (issue #300).
+    """Register start_cooking (issue #473), write_resource/read_resource
+    (issue #300) and observe_resource (issue #607).
 
     Called once from `async_setup`, not per config entry: services are
     process-global, and `hass.services.async_register` on an
@@ -265,6 +310,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     async def _handle_read(call: ServiceCall) -> ServiceResponse:
         return await _async_read_resource(hass, call)
+
+    async def _handle_observe(call: ServiceCall) -> ServiceResponse:
+        return await _async_observe_resource(hass, call)
 
     async def _handle_start_cooking(call: ServiceCall) -> None:
         await _async_start_cooking(hass, call)
@@ -281,6 +329,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_READ_RESOURCE,
         _handle_read,
         schema=_READ_RESOURCE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_OBSERVE_RESOURCE,
+        _handle_observe,
+        schema=_OBSERVE_RESOURCE_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(

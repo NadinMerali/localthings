@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "Odczyt z {href} nie powiódł się: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "Czas trwania musi być większy niż 0 i wynosić najwyżej {max} sekund."
+    },
+    "observe_not_supported": {
+      "message": "Interfejs tego urządzenia nie obsługuje obserwowania zasobów."
+    },
+    "observe_query_while_observed": {
+      "message": "{href} jest już obserwowany przez tę integrację, więc nie można go ponownie obserwować z zapytaniem."
+    },
+    "debug_observe_failed": {
+      "message": "Obserwowanie {href} nie powiodło się: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Podaj od 1 do 10 zapisów."
     },

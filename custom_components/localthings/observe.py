@@ -114,6 +114,19 @@ class ObserveManager:
         self._refresh_task: ObserveRefreshTask | None = None
         self._refresh_stop: threading.Event | None = None
         self._refresh_thread: threading.Thread | None = None
+        # Per href, every notification seen while observe_resource listens,
+        # as (monotonic time, decoded body). Guarded by _notify_cond.
+        self._taps: dict[str, list[tuple[float, object]]] = {}
+
+    def start_tap(self, href: str) -> list[tuple[float, object]]:
+        """Record every notification for `href` until stop_tap, whatever
+        its shape, into the returned list."""
+        with self._notify_cond:
+            return self._taps.setdefault(href, [])
+
+    def stop_tap(self, href: str) -> None:
+        with self._notify_cond:
+            self._taps.pop(href, None)
 
     def set_on_applied(self, callback: Callable[[str, dict, str], None]) -> None:
         """Hook run after every accepted rep, on the applying thread.
@@ -243,7 +256,12 @@ class ObserveManager:
             rep = cbor2.loads(payload)
         except Exception as e:
             self.log.warning("observe %s: cbor decode failed: %s", href, e)
-            return
+            rep = None
+        with self._notify_cond:
+            tap = self._taps.get(href)
+            if tap is not None:
+                # Before the checks below: what was pushed is the point.
+                tap.append((time.monotonic(), payload if rep is None else rep))
         if not isinstance(rep, dict):
             return
         if self._resource_type_mismatch(href, rep):

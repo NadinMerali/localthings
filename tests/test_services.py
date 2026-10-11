@@ -1,5 +1,6 @@
-"""Tests for the write_resource/read_resource services (issue #300) and the
-options-flow debug panel now that it goes through write_resource instead of
+"""Tests for the write_resource/read_resource services (issue #300), the
+observe_resource service (issue #607), and the options-flow debug panel
+now that it goes through write_resource instead of
 calling coordinator.async_raw_write directly (config_flow.py). See
 tests/test_coordinator_raw_write.py for the underlying single-write
 primitive's own session/validation tests -- these focus on the service
@@ -13,6 +14,7 @@ import hashlib
 import json
 from unittest.mock import AsyncMock, patch
 
+import cbor2
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -25,9 +27,12 @@ from custom_components.localthings.const import (
     CONF_LEAF_CERT_PEM,
     CONF_LEAF_KEY_PEM,
     CONF_PORT,
+    CONF_TRANSPORT,
     DOMAIN,
+    SERVICE_OBSERVE_RESOURCE,
     SERVICE_READ_RESOURCE,
     SERVICE_WRITE_RESOURCE,
+    TRANSPORT_LEGACY_HTTP,
 )
 from custom_components.localthings.coordinator import LocalThingsCoordinator
 from custom_components.localthings.registry.encode import TYPE_KEY, from_json_safe
@@ -1127,3 +1132,219 @@ async def test_write_resource_batch_verify_after_reports_held_per_element(
     }
     # The rep-less marker is not a write, so nothing claims anything about it.
     assert "/devices/0" not in verified["elements"]
+
+
+# ----------------------------------------------------------------------
+# observe_resource (issue #607): a timed OBSERVE next to a plain GET
+# ----------------------------------------------------------------------
+
+_OBS_HREF = "/energy/consumption/vs/0"
+_OBS_SEGS = ["energy", "consumption", "vs", "0"]
+_OBS_GET = {
+    "x.com.samsung.da.cumulativePower": "297609",
+    "x.com.samsung.da.instantaneousPowerUnit": "W",
+}
+_OBS_PUSH = {**_OBS_GET, "x.com.samsung.da.instantaneousPower": "450"}
+
+
+class _ObservingSession(_FakeSession):
+    """Records subscribe/unsubscribe, and pushes `on_subscribe` through the
+    coordinator's own notification callback the way the DTLS reader would."""
+
+    def __init__(self, coord, on_subscribe=()):
+        super().__init__()
+        self._coord = coord
+        self._on_subscribe = list(on_subscribe)
+        self.subscribed: list[tuple[list[str], tuple]] = []
+        self.unsubscribed: list[list[str]] = []
+
+    def subscribe(self, path_segs, *, query=()):
+        self.subscribed.append((list(path_segs), tuple(query)))
+        for rep in self._on_subscribe:
+            self.push("/" + "/".join(path_segs), rep)
+        return b"\x01"
+
+    def unsubscribe(self, path_segs):
+        self.unsubscribed.append(list(path_segs))
+        return 1
+
+    def push(self, href, rep):
+        payload = rep if isinstance(rep, bytes) else cbor2.dumps(rep)
+        self._coord._observe.on_notification(href, payload)
+
+
+async def _call_observe(hass: HomeAssistant, device: str, **data):
+    return await hass.services.async_call(
+        DOMAIN,
+        SERVICE_OBSERVE_RESOURCE,
+        data,
+        target={"device_id": device},
+        blocking=True,
+        return_response=True,
+    )
+
+
+async def _no_sleep(_delay):
+    return None
+
+
+async def test_a_field_only_a_push_carries_is_named(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator, on_subscribe=[_OBS_PUSH])
+    fake.queue_get(_OBS_HREF, _OBS_GET)
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF, duration=10)
+
+    assert fake.get_calls == [_OBS_SEGS]
+    assert fake.subscribed == [(_OBS_SEGS, ())]
+    assert fake.unsubscribed == [_OBS_SEGS]
+    assert response["get"] == {"code": "2.05", "rep": _OBS_GET}
+    assert [n["rep"] for n in response["notifications"]] == [_OBS_PUSH]
+    assert response["notifications"][0]["t"] >= 0
+    assert response["fields_only_in_notifications"] == ["x.com.samsung.da.instantaneousPower"]
+    assert response["already_observed"] is False
+    assert response["session_dropped"] is False
+
+
+async def test_nothing_pushed_is_an_empty_list(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator)
+    fake.queue_get(_OBS_HREF, _OBS_GET)
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert response["notifications"] == []
+    assert response["fields_only_in_notifications"] == []
+
+
+async def test_a_query_is_sent_with_the_subscription(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        response = await _call_observe(hass, device_id, href=f"{_OBS_HREF}?if=oic.if.baseline")
+
+    assert fake.subscribed == [(_OBS_SEGS, ("if=oic.if.baseline",))]
+    assert response["query"] == ["if=oic.if.baseline"]
+
+
+async def test_an_href_the_coordinator_observes_is_only_listened_to(hass, coordinator, device_id):
+    """unsubscribe retires every relation on the path, so touching it would
+    end the coordinator's own push updates."""
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+    coordinator._observe.subscribed_hrefs = {_OBS_HREF}
+
+    async def _push_while_waiting(_delay):
+        fake.push(_OBS_HREF, _OBS_PUSH)
+
+    with patch(_SLEEP_TARGET, new=_push_while_waiting):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert fake.subscribed == []
+    assert fake.unsubscribed == []
+    assert response["already_observed"] is True
+    assert [n["rep"] for n in response["notifications"]] == [_OBS_PUSH]
+
+
+async def test_a_relation_the_coordinator_took_over_is_left_alone(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    async def _coordinator_subscribes(_delay):
+        coordinator._observe.subscribed_hrefs = {_OBS_HREF}
+
+    with patch(_SLEEP_TARGET, new=_coordinator_subscribes):
+        await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert fake.unsubscribed == []
+
+
+async def test_a_session_lost_while_listening_is_reported(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    async def _drop(_delay):
+        coordinator._session = None
+
+    with patch(_SLEEP_TARGET, new=_drop):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert response["session_dropped"] is True
+    assert fake.unsubscribed == []
+
+
+async def test_a_push_that_will_not_decode_is_kept_raw(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator, on_subscribe=[b"\xff\x00"])
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert response["notifications"][0]["rep"][TYPE_KEY] == "bytes"
+    assert response["fields_only_in_notifications"] == []
+
+
+async def test_the_listening_stops_after_the_call(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    with patch(_SLEEP_TARGET, new=_no_sleep):
+        response = await _call_observe(hass, device_id, href=_OBS_HREF)
+    fake.push(_OBS_HREF, _OBS_PUSH)
+
+    assert response["notifications"] == []
+    assert coordinator._observe._taps == {}
+
+
+@pytest.mark.parametrize("duration", [0, 121])
+async def test_a_duration_out_of_range_is_refused(hass, coordinator, device_id, duration):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    with pytest.raises(ServiceValidationError) as err:
+        await _call_observe(hass, device_id, href=_OBS_HREF, duration=duration)
+
+    assert err.value.translation_key == "observe_duration_out_of_range"
+    # Refused before anything reaches the appliance.
+    assert fake.get_calls == []
+    assert fake.subscribed == []
+
+
+async def test_a_query_on_an_href_the_coordinator_observes_is_refused(hass, coordinator, device_id):
+    coordinator._session = _ObservingSession(coordinator)
+    coordinator._observe.subscribed_hrefs = {_OBS_HREF}
+
+    with pytest.raises(ServiceValidationError) as err:
+        await _call_observe(hass, device_id, href=f"{_OBS_HREF}?if=oic.if.baseline")
+
+    assert err.value.translation_key == "observe_query_while_observed"
+
+
+async def test_an_8888_appliance_is_refused(hass, coordinator, device_id):
+    entry = coordinator._entry
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, CONF_TRANSPORT: TRANSPORT_LEGACY_HTTP}
+    )
+    coordinator._session = _ObservingSession(coordinator)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert err.value.translation_key == "observe_not_supported"
+
+
+async def test_a_failed_subscribe_is_a_home_assistant_error(hass, coordinator, device_id):
+    fake = _ObservingSession(coordinator)
+    coordinator._session = fake
+
+    with (
+        patch.object(fake, "subscribe", side_effect=RuntimeError("socket closed")),
+        pytest.raises(HomeAssistantError) as err,
+    ):
+        await _call_observe(hass, device_id, href=_OBS_HREF)
+
+    assert err.value.translation_key == "debug_observe_failed"
+    assert coordinator._observe._taps == {}

@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "La lettura da {href} è fallita: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "La durata deve essere maggiore di 0 e al massimo {max} secondi."
+    },
+    "observe_not_supported": {
+      "message": "L'interfaccia di questo elettrodomestico non supporta l'osservazione delle risorse."
+    },
+    "observe_query_while_observed": {
+      "message": "{href} è già osservato da questa integrazione, quindi non può essere osservato di nuovo con una query."
+    },
+    "debug_observe_failed": {
+      "message": "Osservazione di {href} non riuscita: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Specificare da 1 a 10 scritture."
     },

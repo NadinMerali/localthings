@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "Das Lesen von {href} ist fehlgeschlagen: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "Die Dauer muss größer als 0 und höchstens {max} Sekunden sein."
+    },
+    "observe_not_supported": {
+      "message": "Die Schnittstelle dieses Geräts unterstützt das Beobachten von Ressourcen nicht."
+    },
+    "observe_query_while_observed": {
+      "message": "{href} wird von dieser Integration bereits beobachtet und kann daher nicht erneut mit einer Abfrage beobachtet werden."
+    },
+    "debug_observe_failed": {
+      "message": "Das Beobachten von {href} ist fehlgeschlagen: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Geben Sie zwischen 1 und 10 Schreibvorgänge an."
     },

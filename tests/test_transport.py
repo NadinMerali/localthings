@@ -28,6 +28,8 @@ class _FakeCoapSession:
         self.paced = 0
         self.posts: list[tuple[list[str], bytes]] = []
         self.subscribed: list[list[str]] = []
+        self.subscribe_queries: list[tuple] = []
+        self.unsubscribed: list[list[str]] = []
         self.refreshed: list = []
         self.payload = cbor2.dumps({"x.com.samsung.da.power": "On"})
         self.code = 0x45
@@ -50,9 +52,14 @@ class _FakeCoapSession:
     def pace(self):
         self.paced += 1
 
-    def subscribe(self, path_segs):
+    def subscribe(self, path_segs, *, query=()):
         self.subscribed.append(path_segs)
+        self.subscribe_queries.append(query)
         return b"\x01"
+
+    def unsubscribe(self, path_segs):
+        self.unsubscribed.append(path_segs)
+        return 1
 
     def refresh_observes(self, paths):
         self.refreshed.append(paths)
@@ -307,6 +314,15 @@ class TestObserve:
 
         assert fake_of(transport).subscribed == [["power", "vs", "0"]]
         assert fake_of(transport).refreshed == [[("power", "vs", "0")]]
+
+    def test_a_subscription_query_and_unsubscribe_forward(self, transport):
+        """observe_resource subscribes under a query and retires its own
+        relation afterwards (issue #607)."""
+        transport.subscribe(["power", "vs", "0"], query=["if=oic.if.baseline"])
+        transport.unsubscribe(["power", "vs", "0"])
+
+        assert fake_of(transport).subscribe_queries == [("if=oic.if.baseline",)]
+        assert fake_of(transport).unsubscribed == [["power", "vs", "0"]]
 
     def test_pace_forwards(self, transport):
         transport.pace()

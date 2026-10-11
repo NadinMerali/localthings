@@ -594,7 +594,10 @@ class LegacyHttpTransport:
             }
         return out
 
-    def subscribe(self, path_segs: Sequence[str]) -> Any:
+    def subscribe(self, path_segs: Sequence[str], *, query: Sequence[str] = ()) -> Any:
+        raise NotImplementedError("the 8888 bridge has no OBSERVE")
+
+    def unsubscribe(self, path_segs: Sequence[str]) -> Any:
         raise NotImplementedError("the 8888 bridge has no OBSERVE")
 
     def refresh_observes(self, paths: Sequence[Sequence[str]]) -> None:

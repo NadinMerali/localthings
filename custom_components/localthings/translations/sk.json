@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "Čítanie z {href} zlyhalo: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "Trvanie musí byť väčšie ako 0 a najviac {max} sekúnd."
+    },
+    "observe_not_supported": {
+      "message": "Rozhranie tohto spotrebiča nepodporuje sledovanie prostriedkov."
+    },
+    "observe_query_while_observed": {
+      "message": "{href} už táto integrácia sleduje, preto ho nemožno znova sledovať s dotazom."
+    },
+    "debug_observe_failed": {
+      "message": "Sledovanie {href} zlyhalo: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Zadajte 1 až 10 zápisov."
     },

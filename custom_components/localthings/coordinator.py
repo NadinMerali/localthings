@@ -2914,6 +2914,98 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     translation_placeholders={"href": norm_href, "error": str(e)},
                 ) from e
 
+    # observe_resource's listening window, in seconds, and how many
+    # notifications one call keeps.
+    OBSERVE_DURATION_MAX_S: float = 120.0
+    _OBSERVE_KEEP: int = 200
+
+    async def async_observe_resource(
+        self, href: str, query: Sequence[str] = (), duration: float = 30.0
+    ) -> dict[str, Any]:
+        """Debug-only OBSERVE on one href for `duration` seconds, after one
+        live GET of it (issue #607: whether a board pushes fields its GET
+        leaves out). Backs the observe_resource service.
+
+        The session lock is held only to subscribe and unsubscribe, so polls
+        and writes carry on while it listens. An href this coordinator
+        already observes is only listened to: unsubscribing retires every
+        relation on the path, its own included."""
+        path_segs = _href_to_path_segs(href)
+        if not path_segs:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="resource_href_required",
+            )
+        if not 0 < duration <= self.OBSERVE_DURATION_MAX_S:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="observe_duration_out_of_range",
+                translation_placeholders={"max": str(int(self.OBSERVE_DURATION_MAX_S))},
+            )
+        if self._entry.data.get(CONF_TRANSPORT) == TRANSPORT_LEGACY_HTTP:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="observe_not_supported",
+            )
+        norm_href = "/" + "/".join(path_segs)
+        already_observed = norm_href in self._observe.subscribed_hrefs
+        if already_observed and query:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="observe_query_while_observed",
+                translation_placeholders={"href": norm_href},
+            )
+        code, rep, _body = await self.async_raw_read(norm_href, query)
+
+        def _subscribe():
+            if self._session is None:
+                self._connect_session()
+            sess = self._session
+            if sess is None:
+                raise RuntimeError("no session")
+            started = time.monotonic()
+            if not already_observed:
+                sess.subscribe(path_segs, query=tuple(query))
+            return sess, started
+
+        tap = self._observe.start_tap(norm_href)
+        try:
+            async with self._session_lock:
+                try:
+                    sess, started = await self.hass.async_add_executor_job(_subscribe)
+                except Exception as e:
+                    self._log.warning("debug observe failed for %s: %s", norm_href, e)
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="debug_observe_failed",
+                        translation_placeholders={"href": norm_href, "error": str(e)},
+                    ) from e
+            await asyncio.sleep(duration)
+        finally:
+            self._observe.stop_tap(norm_href)
+        notifications = list(tap)
+
+        session_dropped = self._session is not sess
+        # Left alone if the coordinator subscribed it meanwhile; a spare
+        # relation ends with the session.
+        if not (already_observed or session_dropped) and (
+            norm_href not in self._observe.subscribed_hrefs
+        ):
+            async with self._session_lock:
+                try:
+                    await self.hass.async_add_executor_job(sess.unsubscribe, path_segs)
+                except Exception as e:
+                    self._log.debug("debug observe: unsubscribe %s failed: %s", norm_href, e)
+        return {
+            "get": (code, rep),
+            "already_observed": already_observed,
+            "session_dropped": session_dropped,
+            "notifications": [
+                (round(at - started, 2), body) for at, body in notifications[: self._OBSERVE_KEEP]
+            ],
+            "truncated": len(notifications) > self._OBSERVE_KEEP,
+        }
+
     async def async_raw_write_sequence(
         self,
         writes: list[dict],

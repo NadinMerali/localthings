@@ -295,6 +295,18 @@
     "debug_read_failed": {
       "message": "La lectura desde {href} falló: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "La duración debe ser mayor que 0 y como máximo {max} segundos."
+    },
+    "observe_not_supported": {
+      "message": "La interfaz de este electrodoméstico no admite observar recursos."
+    },
+    "observe_query_while_observed": {
+      "message": "Esta integración ya observa {href}, así que no se puede volver a observar con una consulta."
+    },
+    "debug_observe_failed": {
+      "message": "No se pudo observar {href}: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Proporciona entre 1 y 10 escrituras."
     },

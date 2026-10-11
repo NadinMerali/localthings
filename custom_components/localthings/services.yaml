@@ -148,3 +148,42 @@ read_resource:
       example: /device/1?if=oic.if.b
       selector:
         text:
+
+observe_resource:
+  name: Observe resource
+  description: >-
+    Subscribe to one of a device's OCF resources with CoAP OBSERVE for a
+    while, and return every notification it pushed alongside a plain GET of
+    the same resource. For finding fields a device only sends in
+    notifications, not day-to-day use. Polling and writes carry on while it
+    listens. Not available on appliances on TCP 8888.
+  fields:
+    device_id:
+      name: Device
+      description: The appliance to observe, or one of its subdevices.
+      required: true
+      selector:
+        device:
+          integration: localthings
+    href:
+      name: Resource href
+      description: >-
+        Canonical resource href to observe (e.g. /energy/consumption/vs/0).
+        Add a query after ? to send it with the subscription, as with Read
+        resource.
+      required: true
+      example: /energy/consumption/vs/0
+      selector:
+        text:
+    duration:
+      name: Duration
+      description: How many seconds to listen for, up to 120.
+      required: false
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 120
+          step: 1
+          unit_of_measurement: seconds
+          mode: box

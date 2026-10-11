@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "{href}에서 읽기가 실패했습니다: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "기간은 0보다 크고 최대 {max}초여야 합니다."
+    },
+    "observe_not_supported": {
+      "message": "이 기기의 인터페이스는 리소스 관찰을 지원하지 않습니다."
+    },
+    "observe_query_while_observed": {
+      "message": "{href}은(는) 이 통합에서 이미 관찰 중이므로 쿼리로 다시 관찰할 수 없습니다."
+    },
+    "debug_observe_failed": {
+      "message": "{href} 관찰에 실패했습니다: {error}"
+    },
     "debug_too_many_writes": {
       "message": "1~10개의 쓰기를 지정하세요."
     },

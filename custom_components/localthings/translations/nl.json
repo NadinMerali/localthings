@@ -2195,6 +2195,18 @@
     "debug_read_failed": {
       "message": "Het lezen van {href} is mislukt: {error}"
     },
+    "observe_duration_out_of_range": {
+      "message": "De duur moet groter zijn dan 0 en hoogstens {max} seconden."
+    },
+    "observe_not_supported": {
+      "message": "De interface van dit apparaat ondersteunt het observeren van resources niet."
+    },
+    "observe_query_while_observed": {
+      "message": "{href} wordt al door deze integratie geobserveerd en kan daarom niet opnieuw met een query worden geobserveerd."
+    },
+    "debug_observe_failed": {
+      "message": "Observeren van {href} is mislukt: {error}"
+    },
     "debug_too_many_writes": {
       "message": "Geef tussen de 1 en 10 schrijfacties op."
     },
