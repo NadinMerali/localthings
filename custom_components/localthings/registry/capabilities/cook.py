@@ -250,6 +250,16 @@ def _spec_entries(raw: Any) -> list:
     return raw if isinstance(raw, list) else []
 
 
+def _is_empty_spec(spec: Any) -> bool:
+    """`[]` or a JSON string of one, as against missing or malformed."""
+    if isinstance(spec, str):
+        try:
+            spec = json.loads(spec)
+        except ValueError:
+            return False
+    return spec == []
+
+
 def has_entries(spec: Any) -> bool:
     """Whether a modeSpec value has entries. An LCD_R18 board answers `"[]"`
     until it is ready (#600) and on its lower zone (#597)."""
@@ -305,7 +315,6 @@ def share_mode_spec(resources: dict, siblings: Sequence[Callable[[str], str]]) -
     ]
     main_live = main.get(_SUPPORTED_MODES)
     offered = [m for m in tagged if m in main_live] if isinstance(main_live, list) else tagged
-    named = {e.get("mode") for e in entries if isinstance(e, dict)}
     shared = dict(resources)
     copied = zoned = False
     for to_actual in siblings:
@@ -315,7 +324,9 @@ def share_mode_spec(resources: dict, siblings: Sequence[Callable[[str], str]]) -
             continue
         rep = {**rep, MODE_SPEC: spec}
         live = rep.get(_SUPPORTED_MODES)
-        if tagged and not (isinstance(live, list) and named & set(live)):
+        # A cavity that lists no cooking mode at all (HOMECARE_WIZARD_V2 only
+        # on the NV7B6665IAA); one omitting the list is left as reported.
+        if tagged and isinstance(live, list) and not selectable_modes(live):
             divider = (resources.get(to_actual(CONNECTED_HREF)) or {}).get(
                 "x.com.samsung.da.connected"
             )
@@ -325,10 +336,8 @@ def share_mode_spec(resources: dict, siblings: Sequence[Callable[[str], str]]) -
         shared[href] = rep
         copied = True
     if zoned and isinstance(main_live, list):
-        shared[MODE_HREF] = {
-            **main,
-            _SUPPORTED_MODES: [m for m in main_live if m not in set(tagged)],
-        }
+        lower = set(tagged)
+        shared[MODE_HREF] = {**main, _SUPPORTED_MODES: [m for m in main_live if m not in lower]}
     return shared if copied else resources
 
 
@@ -381,7 +390,7 @@ def can_start(rep: dict, resources: dict) -> bool:
     modeSpec is empty for now (#600). A press while nothing is startable is
     refused by plan_start."""
     spec = (resources.get(MODE_HREF) or {}).get(MODE_SPEC)
-    if spec == [] or (isinstance(spec, str) and spec.strip() == "[]"):
+    if _is_empty_spec(spec):
         return True
     return any(s.startable for s in mode_specs(resources).values())
 

@@ -177,6 +177,23 @@ class TestShareModeSpec:
 
         assert oven._oven_mode_options(lower) == ["NoOperation"]
 
+    def test_a_sibling_omitting_its_modes_is_not_zoned(self):
+        resources = _resources()
+        resources["/mode/vs/1"] = {
+            k: v
+            for k, v in resources["/mode/vs/1"].items()
+            if k != "x.com.samsung.da.supportedModes"
+        }
+        shared = cook.share_mode_spec(resources, [LOWER.to_actual])
+
+        assert shared["/mode/vs/0"] == resources["/mode/vs/0"]
+        assert cook.cavity(canonical_view(LOWER, shared, [LOWER])) is None
+
+    def test_the_divider_out_zone_refuses_a_mode_write(self):
+        lower = _view(_resources(divider="Off"), LOWER)
+
+        assert oven._oven_mode_write("Bake", lower["/mode/vs/0"], None, lower) is None
+
     def test_a_cavity_without_supported_modes_keeps_the_static_list(self):
         resources = {"/mode/vs/0": {"x.com.samsung.da.defaultMode": "UpperConvection"}}
 
@@ -211,6 +228,10 @@ class TestCachedSpecs:
     @pytest.mark.parametrize("spec", ["not json", "{}", {}])
     def test_a_malformed_spec_gets_no_start(self, spec):
         assert not cook.can_start({}, _resources(main_spec=spec))
+
+    @pytest.mark.parametrize("spec", ["[ ]", "[\n]", []])
+    def test_any_spelling_of_empty_gets_start(self, spec):
+        assert cook.can_start({}, _resources(main_spec=spec))
 
 
 def _discover(resources):
@@ -353,3 +374,12 @@ async def test_diagnostics_report_the_remembered_spec(
     assert diag["remembered_mode_specs"]["/mode/vs/0"]["in_use"]
     # `resources` stays what the device said.
     assert diag["resources"]["/mode/vs/0"]["x.com.samsung.da.modeSpec"] == "[]"
+
+
+async def test_no_save_is_scheduled_after_close(hass: HomeAssistant, bare_coordinator) -> None:  # noqa: F811
+    bare_coordinator._session = None
+    await bare_coordinator.async_close()
+    _load(bare_coordinator, _resources())
+    await hass.async_block_till_done()
+
+    assert await mode_spec_store(hass, bare_coordinator._entry).async_load() is None

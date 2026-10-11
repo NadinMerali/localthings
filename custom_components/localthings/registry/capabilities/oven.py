@@ -285,7 +285,10 @@ def _oven_mode_write(p, rep, href=None, resources=None):
     # from the board's modeSpec (cook.share_mode_spec).
     view = (resources or {}).get("/mode/vs/0") or rep
     live = view.get("x.com.samsung.da.supportedModes")
-    valid = cook.selectable_modes(live) if live else _OVEN_MODES
+    if not live and not cook.zoned(resources or {}):
+        valid = _OVEN_MODES
+    else:
+        valid = cook.selectable_modes(live or [])
     if p not in valid:
         return None
     return ["mode", "vs", "0"], {"x.com.samsung.da.modes": [p]}

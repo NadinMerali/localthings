@@ -133,10 +133,13 @@ def snapshot_store(hass: HomeAssistant, entry: ConfigEntry) -> Store[dict[str, A
     return Store(hass, _SNAPSHOT_VERSION, f"{DOMAIN}.{entry.entry_id}.discovery")
 
 
+_MODE_SPEC_STORE_VERSION = 1
+
+
 def mode_spec_store(hass: HomeAssistant, entry: ConfigEntry) -> Store[dict[str, Any]]:
     """This entry's last modeSpec with entries, per actual mode href (#600);
     see cook.with_cached_specs."""
-    return Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.mode_specs")
+    return Store(hass, _MODE_SPEC_STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.mode_specs")
 
 
 class _NoOpDescriptor:
@@ -445,6 +448,9 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Loaded by async_load_mode_specs before the first refresh.
         self._mode_specs: dict[str, Any] = {}
         self._mode_specs_lock = threading.Lock()
+        # Set by async_close: a save queued from another thread after unload
+        # would recreate the file async_remove_entry deletes.
+        self._closed = False
         # Both set only when this entry loaded from a snapshot instead of a
         # live poll -- see async_rehydrate.
         self._rehydrate_resources: dict[str, dict] | None = None
@@ -1152,6 +1158,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 sess.close()
 
     async def async_close(self) -> None:
+        self._closed = True
         if self._subpoll_task is not None:
             self._subpoll_task.cancel()
             self._subpoll_task = None
@@ -2694,6 +2701,8 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _schedule_mode_spec_save(self) -> None:
+        if self._closed:
+            return
         # Tracked by the entry, so unloading it cancels a save that would
         # otherwise land after async_remove_entry deleted the file.
         self._entry.async_create_background_task(
