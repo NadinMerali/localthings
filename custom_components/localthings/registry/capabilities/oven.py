@@ -254,9 +254,10 @@ def _oven_mode_options(resources):
     fallback has to kick in when the device's own field is absent."""
     rep = resources.get("/mode/vs/0") or {}
     live = rep.get("x.com.samsung.da.supportedModes")
-    if not live:
+    # An empty list is a lower zone with its divider out (cook.share_mode_spec).
+    if not live and not cook.cavity(resources):
         return list(_OVEN_MODES)
-    live = cook.selectable_modes(live)
+    live = cook.selectable_modes(live or [])
     # Ranges (every range fixture, plus #404's) and the #277 wall oven idle
     # in NoOperation but leave it out of supportedModes; HA's select drops a
     # current option that isn't in the list, so the idle state showed as
