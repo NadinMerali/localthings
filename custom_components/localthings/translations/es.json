@@ -505,8 +505,8 @@
       "wrinkle_prevent_active": {
         "name": "Anti-arrugas activo"
       },
-      "cooktop_sync_flex": {
-        "name": "Sync Flex"
+      "cooktop_sync_control": {
+        "name": "Control sincronizado"
       },
       "cooktop_paused": {
         "name": "En pausa"

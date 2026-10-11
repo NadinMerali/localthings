@@ -154,8 +154,8 @@
       "wrinkle_prevent_active": {
         "name": "Knitterschutz aktiv"
       },
-      "cooktop_sync_flex": {
-        "name": "Sync Flex"
+      "cooktop_sync_control": {
+        "name": "Synchronsteuerung"
       },
       "cooktop_paused": {
         "name": "Pausiert"

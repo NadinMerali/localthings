@@ -58,6 +58,7 @@ REGISTRY = DeviceRegistry(
                 _BURNER_LIST_POWER,
                 # /mode/vs/0 options-array boards.
                 legacy_cooktop.MODE,
+                legacy_cooktop.TP6X_MODE,
                 legacy_cooktop.DIAGNOSIS,
                 cooktop.COOKTOP_CONNECTED,
                 # /cooktop/status/vs/0 burnerList boards.

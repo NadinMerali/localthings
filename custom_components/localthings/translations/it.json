@@ -154,8 +154,8 @@
       "wrinkle_prevent_active": {
         "name": "Antipiega attivo"
       },
-      "cooktop_sync_flex": {
-        "name": "Sync Flex"
+      "cooktop_sync_control": {
+        "name": "Controllo sincronizzato"
       },
       "cooktop_paused": {
         "name": "In pausa"

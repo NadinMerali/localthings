@@ -22,7 +22,7 @@
     "cooktop_flex_coil",
     "cooktop_model",
     "cooktop_paused",
-    "cooktop_sync_flex",
+    "cooktop_sync_control",
     "firmware_update",
     "main_timer_current",
     "main_timer_set",

@@ -154,8 +154,8 @@
       "wrinkle_prevent_active": {
         "name": "Ochrana proti pokrčeniu aktívna"
       },
-      "cooktop_sync_flex": {
-        "name": "Sync Flex"
+      "cooktop_sync_control": {
+        "name": "Synchronizované ovládanie"
       },
       "cooktop_paused": {
         "name": "Pozastavené"

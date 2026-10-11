@@ -154,8 +154,8 @@
       "wrinkle_prevent_active": {
         "name": "구김 방지 작동 중"
       },
-      "cooktop_sync_flex": {
-        "name": "Sync Flex"
+      "cooktop_sync_control": {
+        "name": "동기화 제어"
       },
       "cooktop_paused": {
         "name": "일시 정지"

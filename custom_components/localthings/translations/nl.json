@@ -154,8 +154,8 @@
       "wrinkle_prevent_active": {
         "name": "Kreukpreventie actief"
       },
-      "cooktop_sync_flex": {
-        "name": "Sync Flex"
+      "cooktop_sync_control": {
+        "name": "Gesynchroniseerde bediening"
       },
       "cooktop_paused": {
         "name": "Gepauzeerd"

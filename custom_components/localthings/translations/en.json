@@ -154,8 +154,8 @@
       "wrinkle_prevent_active": {
         "name": "Wrinkle prevent active"
       },
-      "cooktop_sync_flex": {
-        "name": "Sync Flex"
+      "cooktop_sync_control": {
+        "name": "Sync control"
       },
       "cooktop_paused": {
         "name": "Paused"
