@@ -181,6 +181,37 @@ class TestRead:
         assert 0 < calls[1][2] <= 10.0
         assert fake_of(transport).paced == 1
 
+    def test_a_path_that_needed_the_batch_asks_for_it_first_next_time(self, transport, monkeypatch):
+        """One GET per poll instead of two on a board that always answers
+        links first (#597)."""
+        batch = [{"href": "/power/vs/1", "rep": {"x.com.samsung.da.power": "Off"}}]
+        queries = []
+
+        def get(path_segs, *, timeout, query=()):
+            queries.append(tuple(query))
+            return 0x45, cbor2.dumps(batch if query else {"links": []})
+
+        monkeypatch.setattr(fake_of(transport), "get", get)
+        transport.read(["device", "1"], timeout=10.0)
+        queries.clear()
+
+        assert transport.read(["device", "1"], timeout=10.0) == (0x45, batch)
+        assert queries == [("if=oic.if.b",)]
+
+    def test_a_failed_batch_is_not_remembered(self, transport, monkeypatch):
+        queries = []
+
+        def get(path_segs, *, timeout, query=()):
+            queries.append(tuple(query))
+            return (0x84, b"") if query else (0x45, cbor2.dumps({"links": []}))
+
+        monkeypatch.setattr(fake_of(transport), "get", get)
+        transport.read(["device", "1"], timeout=10.0)
+        queries.clear()
+        transport.read(["device", "1"], timeout=10.0)
+
+        assert queries == [(), ("if=oic.if.b",)]
+
     @pytest.mark.parametrize(
         ("path", "code", "body"),
         [
@@ -190,6 +221,7 @@ class TestRead:
             (["device", "0"], 0x44, {"links": []}),
             (["oic", "res"], 0x45, {"links": []}),
             (["device", "x"], 0x45, {"links": []}),
+            (["device", "\u00b2"], 0x45, {"links": []}),
             (["uuid", "device", "0"], 0x45, {"links": []}),
             (["power", "0"], 0x45, {"value": True}),
         ],

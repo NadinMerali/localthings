@@ -146,6 +146,13 @@ class Transport(Protocol):
     def diagnostics(self) -> dict[str, Any]: ...
 
 
+_BATCH_QUERY = ("if=oic.if.b",)
+
+
+def _is_index(segment: str) -> bool:
+    return segment.isascii() and segment.isdigit()
+
+
 class DtlsTransport:
     """CoAP over DTLS -- the transport every supported device speaks.
 
@@ -178,6 +185,9 @@ class DtlsTransport:
         self._on_notification = on_notification
         self._local_port = local_port
         self._session: DtlsCoapSession | None = None
+        # /device/<n> paths that answered links and then a batch: asked for
+        # the batch straight away from then on, one GET instead of two.
+        self._batch_paths: set[tuple[str, ...]] = set()
 
     @property
     def host(self) -> str:
@@ -220,26 +230,25 @@ class DtlsTransport:
     ) -> tuple[int, Any]:
         session = self._live()
         path = list(path_segs)
+        # LCD_R18 boards answer /device/0 and /device/1 (#597) with links
+        # unless asked for the batch, which discovery and polling need. Any
+        # board's /device/<n> gets the same fallback; a caller that named
+        # its own query gets exactly what it asked for.
+        seed = not query and len(path) == 2 and path[0] == "device" and _is_index(path[1])
+        if seed and tuple(path) in self._batch_paths:
+            return _decode_read(*session.get(path, query=list(_BATCH_QUERY), timeout=timeout))
         deadline = time.monotonic() + timeout
         code, body = _decode_read(*session.get(path, query=tuple(query), timeout=timeout))
-        # The LCD_R18 oven returns links by default on /device/0 and on its
-        # lower zone's /device/1 (#597); explicit batch returns the
-        # representations needed for discovery and polling. A caller that
-        # named its own query gets exactly what it asked for.
-        if (
-            not query
-            and len(path) == 2
-            and path[0] == "device"
-            and path[1].isdigit()
-            and code == 0x45
-            and isinstance(body, dict)
-            and isinstance(body.get("links"), list)
-        ):
+        if seed and code == 0x45 and isinstance(body, dict) and isinstance(body.get("links"), list):
             session.pace()
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError("device batch read exhausted its timeout")
-            return _decode_read(*session.get(path, query=["if=oic.if.b"], timeout=remaining))
+            code, body = _decode_read(
+                *session.get(path, query=list(_BATCH_QUERY), timeout=remaining)
+            )
+            if code == 0x45 and isinstance(body, list):
+                self._batch_paths.add(tuple(path))
         return code, body
 
     def write(self, path_segs: Sequence[str], body: dict | list, timeout: float) -> tuple[int, Any]:
