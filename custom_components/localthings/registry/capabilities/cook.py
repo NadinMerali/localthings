@@ -250,10 +250,14 @@ def _spec_entries(raw: Any) -> list:
     return raw if isinstance(raw, list) else []
 
 
-def reports_mode_spec(rep: dict | None) -> bool:
-    """Whether `rep` carries a modeSpec with entries. An LCD_R18 board
-    answers `"[]"` until it is ready (#600) and on its lower zone (#597)."""
-    return bool(_spec_entries((rep or {}).get(MODE_SPEC)))
+def has_entries(spec: Any) -> bool:
+    """Whether a modeSpec value has entries. An LCD_R18 board answers `"[]"`
+    until it is ready (#600) and on its lower zone (#597)."""
+    return bool(_spec_entries(spec))
+
+
+def _reports_mode_spec(rep: dict | None) -> bool:
+    return has_entries((rep or {}).get(MODE_SPEC))
 
 
 def with_cached_specs(resources: dict, cached: dict[str, Any]) -> dict:
@@ -265,7 +269,7 @@ def with_cached_specs(resources: dict, cached: dict[str, Any]) -> dict:
     filled = {
         href: {**resources[href], MODE_SPEC: spec}
         for href, spec in cached.items()
-        if href in resources and not reports_mode_spec(resources[href])
+        if href in resources and not _reports_mode_spec(resources[href])
     }
     return {**resources, **filled} if filled else resources
 
@@ -294,29 +298,28 @@ def share_mode_spec(resources: dict, siblings: Sequence[Callable[[str], str]]) -
     entries = _spec_entries(spec)
     if not entries:
         return resources
-    lower = [
+    tagged = [
         e["mode"]
         for e in entries
         if isinstance(e, dict) and e.get("cavity") == "Lower" and isinstance(e.get("mode"), str)
     ]
     main_live = main.get(_SUPPORTED_MODES)
-    if isinstance(main_live, list):
-        lower = [m for m in lower if m in main_live]
+    offered = [m for m in tagged if m in main_live] if isinstance(main_live, list) else tagged
     named = {e.get("mode") for e in entries if isinstance(e, dict)}
     shared = dict(resources)
     copied = zoned = False
     for to_actual in siblings:
         href = to_actual(MODE_HREF)
         rep = resources.get(href)
-        if rep is None or reports_mode_spec(rep):
+        if rep is None or _reports_mode_spec(rep):
             continue
         rep = {**rep, MODE_SPEC: spec}
         live = rep.get(_SUPPORTED_MODES)
-        if lower and not (isinstance(live, list) and named & set(live)):
+        if tagged and not (isinstance(live, list) and named & set(live)):
             divider = (resources.get(to_actual(CONNECTED_HREF)) or {}).get(
                 "x.com.samsung.da.connected"
             )
-            rep[_SUPPORTED_MODES] = [] if divider == "Off" else list(lower)
+            rep[_SUPPORTED_MODES] = [] if divider == "Off" else offered
             rep[_CAVITY_FIELD] = "Lower"
             zoned = True
         shared[href] = rep
@@ -324,7 +327,7 @@ def share_mode_spec(resources: dict, siblings: Sequence[Callable[[str], str]]) -
     if zoned and isinstance(main_live, list):
         shared[MODE_HREF] = {
             **main,
-            _SUPPORTED_MODES: [m for m in main_live if m not in set(lower)],
+            _SUPPORTED_MODES: [m for m in main_live if m not in set(tagged)],
         }
     return shared if copied else resources
 
@@ -332,6 +335,12 @@ def share_mode_spec(resources: dict, siblings: Sequence[Callable[[str], str]]) -
 _CAVITY_PREFIXES = ("Upper", "Lower")
 # The 8888 Flex Duo's lower cavity describes itself LCD_OV_WALL_16K_DIV (#572).
 _LOWER_CAVITY_SUFFIX = "_DIV"
+
+
+def zoned(resources: dict) -> bool:
+    """Whether this cavity's modes come from the board's modeSpec tags
+    (share_mode_spec) rather than its own supportedModes."""
+    return bool((resources.get(MODE_HREF) or {}).get(_CAVITY_FIELD))
 
 
 def cavity(resources: dict) -> str | None:
@@ -372,7 +381,7 @@ def can_start(rep: dict, resources: dict) -> bool:
     modeSpec is empty for now (#600). A press while nothing is startable is
     refused by plan_start."""
     spec = (resources.get(MODE_HREF) or {}).get(MODE_SPEC)
-    if spec is not None and not _spec_entries(spec):
+    if spec == [] or (isinstance(spec, str) and spec.strip() == "[]"):
         return True
     return any(s.startable for s in mode_specs(resources).values())
 

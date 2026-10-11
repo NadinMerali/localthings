@@ -444,6 +444,7 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._mode_spec_store = mode_spec_store(hass, entry)
         # Loaded by async_load_mode_specs before the first refresh.
         self._mode_specs: dict[str, Any] = {}
+        self._mode_specs_lock = threading.Lock()
         # Both set only when this entry loaded from a snapshot instead of a
         # live poll -- see async_rehydrate.
         self._rehydrate_resources: dict[str, dict] | None = None
@@ -2665,18 +2666,27 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         if isinstance(stored, dict):
             self._mode_specs = {
-                href: spec
-                for href, spec in stored.items()
-                if cook.reports_mode_spec({cook.MODE_SPEC: spec})
+                href: spec for href, spec in stored.items() if cook.has_entries(spec)
             }
 
     def _remember_mode_spec(self, href: str, rep: dict) -> None:
         """Runs from _on_rep_applied, on whichever thread applied `rep`."""
         spec = rep.get(cook.MODE_SPEC)
-        if self._mode_specs.get(href) == spec or not cook.reports_mode_spec(rep):
+        if not cook.has_entries(spec):
             return
-        self._mode_specs = {**self._mode_specs, href: spec}
-        self.hass.add_job(self._async_save_mode_specs())
+        with self._mode_specs_lock:
+            if self._mode_specs.get(href) == spec:
+                return
+            self._mode_specs = {**self._mode_specs, href: spec}
+        self.hass.loop.call_soon_threadsafe(self._schedule_mode_spec_save)
+
+    @callback
+    def _schedule_mode_spec_save(self) -> None:
+        # Tracked by the entry, so unloading it cancels a save that would
+        # otherwise land after async_remove_entry deleted the file.
+        self._entry.async_create_background_task(
+            self.hass, self._async_save_mode_specs(), "localthings_save_mode_specs"
+        )
 
     async def _async_save_mode_specs(self) -> None:
         try:

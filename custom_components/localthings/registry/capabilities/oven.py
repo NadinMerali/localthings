@@ -255,7 +255,7 @@ def _oven_mode_options(resources):
     rep = resources.get("/mode/vs/0") or {}
     live = rep.get("x.com.samsung.da.supportedModes")
     # An empty list is a lower zone with its divider out (cook.share_mode_spec).
-    if not live and not cook.cavity(resources):
+    if not live and not cook.zoned(resources):
         return list(_OVEN_MODES)
     live = cook.selectable_modes(live or [])
     # Ranges (every range fixture, plus #404's) and the #277 wall oven idle
@@ -280,8 +280,11 @@ def _oven_mode_validate(p, rep, resources):
     return None
 
 
-def _oven_mode_write(p, rep, href=None):
-    live = rep.get("x.com.samsung.da.supportedModes")
+def _oven_mode_write(p, rep, href=None, resources=None):
+    # The cavity's view, not its raw rep: a zoned lower cavity's modes come
+    # from the board's modeSpec (cook.share_mode_spec).
+    view = (resources or {}).get("/mode/vs/0") or rep
+    live = view.get("x.com.samsung.da.supportedModes")
     valid = cook.selectable_modes(live) if live else _OVEN_MODES
     if p not in valid:
         return None

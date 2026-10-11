@@ -16,7 +16,7 @@ from homeassistant.exceptions import ServiceValidationError
 
 from custom_components.localthings.coordinator import mode_spec_store
 from custom_components.localthings.registry.by_type import resolve
-from custom_components.localthings.registry.capabilities import cook
+from custom_components.localthings.registry.capabilities import cook, oven
 from custom_components.localthings.registry.registry import CAPABILITIES
 from custom_components.localthings.registry.subdevices import (
     MAIN,
@@ -162,6 +162,25 @@ class TestShareModeSpec:
         assert shared["/mode/vs/0"] == resources["/mode/vs/0"]
         assert shared["/mode/vs/1"]["x.com.samsung.da.supportedModes"] == ["LowerBottom"]
 
+    def test_the_zone_is_found_when_the_main_oven_lists_no_lower_modes(self):
+        """The tags alone mark the zone; the main oven's live list only
+        narrows what it is offered."""
+        main_modes = [m for m in MAIN_MODES if not m.startswith("Lower")]
+        lower = _view(_resources(main_modes=main_modes), LOWER)
+
+        assert cook.cavity(lower) == "Lower"
+        assert cook.startable_modes(lower) == []
+
+    def test_the_divider_out_select_offers_only_no_operation(self):
+        lower = _view(_resources(divider="Off"), LOWER)
+
+        assert oven._oven_mode_options(lower) == ["NoOperation"]
+
+    def test_a_cavity_without_supported_modes_keeps_the_static_list(self):
+        resources = {"/mode/vs/0": {"x.com.samsung.da.defaultMode": "UpperConvection"}}
+
+        assert oven._oven_mode_options(resources) == list(oven._OVEN_MODES)
+
 
 class TestCachedSpecs:
     def test_an_empty_spec_is_filled_from_the_cache(self):
@@ -187,6 +206,10 @@ class TestCachedSpecs:
         with pytest.raises(cook.CookStartError) as err:
             cook.plan_start(resources, mode="Convection")
         assert err.value.key == "cook_start_not_supported"
+
+    @pytest.mark.parametrize("spec", ["not json", "{}", {}])
+    def test_a_malformed_spec_gets_no_start(self, spec):
+        assert not cook.can_start({}, _resources(main_spec=spec))
 
 
 def _discover(resources):
@@ -259,6 +282,29 @@ async def test_the_main_oven_refuses_a_lower_mode(bare_coordinator) -> None:  # 
 
     assert err.value.translation_key == "cook_mode_unavailable"
     assert _posts(bare_coordinator) == []
+
+
+async def test_a_lower_mode_changes_mid_cook(bare_coordinator) -> None:  # noqa: F811
+    resources = _resources()
+    resources["/mode/vs/1"] = {
+        **resources["/mode/vs/1"],
+        "x.com.samsung.da.modes": ["LowerConvection"],
+    }
+    resources["/operational/state/vs/1"] = {
+        **resources["/operational/state/vs/1"],
+        "x.com.samsung.da.state": "Run",
+    }
+    resources["/oven/vs/1"] = {"x.com.samsung.da.state": "Cooking"}
+    _load(bare_coordinator, resources)
+
+    await bare_coordinator.async_send_command(
+        _bound(bare_coordinator, "oven_mode", LOWER), "LowerBottom"
+    )
+
+    assert _posts(bare_coordinator)[-1] == (
+        ["mode", "vs", "1"],
+        {"x.com.samsung.da.modes": ["LowerBottom"]},
+    )
 
 
 async def test_a_seen_spec_is_remembered(hass: HomeAssistant, bare_coordinator) -> None:  # noqa: F811
