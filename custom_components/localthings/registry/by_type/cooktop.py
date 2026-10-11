@@ -17,7 +17,7 @@ the board has.
 
 import dataclasses
 
-from ..capabilities import common, cooktop, ignored
+from ..capabilities import common, cooktop, ignored, legacy_cooktop
 from ..capabilities import range as range_caps
 from ._base import DeviceRegistry, _build
 
@@ -57,7 +57,9 @@ REGISTRY = DeviceRegistry(
                 _OPTIONS_POWER,
                 _BURNER_LIST_POWER,
                 # /mode/vs/0 options-array boards.
-                cooktop.COOKTOP_MODE,
+                legacy_cooktop.MODE,
+                legacy_cooktop.TP6X_MODE,
+                legacy_cooktop.DIAGNOSIS,
                 cooktop.COOKTOP_CONNECTED,
                 # /cooktop/status/vs/0 burnerList boards.
                 range_caps.COOKTOP_STATUS,
