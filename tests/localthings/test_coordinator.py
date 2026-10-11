@@ -1878,7 +1878,13 @@ async def test_send_command_waived_write_only_is_not_read_back(
         await coordinator.async_send_command(bound, "2026-10-10T12:00:00")
 
     assert written
-    read.assert_not_called()
+    # Sub-polls can read meanwhile; a read-back is the read made with the
+    # write timeout.
+    assert not [
+        c
+        for c in read.call_args_list
+        if c.kwargs.get("timeout") == LocalThingsCoordinator._POST_TIMEOUT_S
+    ]
 
 
 def test_clock_sync_button_waives_remote_control() -> None:
