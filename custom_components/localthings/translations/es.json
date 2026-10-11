@@ -1984,8 +1984,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "Cambio automático desfase secundario de calefacción"
       },
-      "cooktop_model": {
-        "name": "Modelo de placa"
+      "cooktop_device_type": {
+        "name": "Código de tipo de dispositivo"
       },
       "cooktop_flex_coil": {
         "name": "Código de bobina flexible"

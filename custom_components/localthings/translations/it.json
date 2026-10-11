@@ -1615,8 +1615,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "Commutazione automatica offset secondario riscaldamento"
       },
-      "cooktop_model": {
-        "name": "Modello del piano cottura"
+      "cooktop_device_type": {
+        "name": "Codice tipo dispositivo"
       },
       "cooktop_flex_coil": {
         "name": "Codice bobina flessibile"

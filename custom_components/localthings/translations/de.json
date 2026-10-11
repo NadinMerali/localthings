@@ -1615,8 +1615,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "Automatische Umschaltung Heizen sekundärer Versatz"
       },
-      "cooktop_model": {
-        "name": "Kochfeldmodell"
+      "cooktop_device_type": {
+        "name": "Gerätetypcode"
       },
       "cooktop_flex_coil": {
         "name": "Flex-Spulencode"

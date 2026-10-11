@@ -1615,8 +1615,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "Basculement automatique : décalage secondaire en chauffage"
       },
-      "cooktop_model": {
-        "name": "Modèle de la table de cuisson"
+      "cooktop_device_type": {
+        "name": "Code du type d'appareil"
       },
       "cooktop_flex_coil": {
         "name": "Code de bobine Flex"

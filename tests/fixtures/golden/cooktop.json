@@ -7,7 +7,7 @@
     "burner_4_state",
     "burner_5_state",
     "cloud_connected",
-    "cooktop_model",
+    "cooktop_device_type",
     "firmware_update",
     "main_timer_current",
     "main_timer_set",

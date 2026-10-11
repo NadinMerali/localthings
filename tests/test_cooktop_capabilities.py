@@ -89,4 +89,9 @@ def test_option_sensors_survive_an_unfetched_mode_resource():
     )
 
     keys = {b.desc.key for b in bound}
-    assert {"main_timer_set", "cooktop_paused", "cooktop_sync_control", "cooktop_model"} <= keys
+    assert {
+        "main_timer_set",
+        "cooktop_paused",
+        "cooktop_sync_control",
+        "cooktop_device_type",
+    } <= keys

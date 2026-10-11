@@ -82,19 +82,15 @@ def _hot_surface(options, slot):
     return None if value is None else value.lower() != "normal"
 
 
-def _slot_option_present(prefix, slot):
-    """exists_fn for a per-slot `<prefix><slot>_` option on /mode/vs/0."""
-    return lambda rep, resources: (
-        is_stub_rep(rep)
-        or _option_value(rep.get("x.com.samsung.da.options"), f"{prefix}{slot}") is not None
-    )
-
-
 def _option_present(prefix):
     """exists_fn for a single `<prefix>_` option on /mode/vs/0."""
     return lambda rep, resources: (
         is_stub_rep(rep) or _option_value(rep.get("x.com.samsung.da.options"), prefix) is not None
     )
+
+
+def _slot_option_present(prefix, slot):
+    return _option_present(f"{prefix}{slot}")
 
 
 def _option_on(options, prefix):
@@ -191,7 +187,7 @@ COOKTOP_MODE = Capability(
             exists_fn=_option_present("SyncFlex"),
         ),
         SensorDesc(
-            key="cooktop_model",
+            key="cooktop_device_type",
             field="x.com.samsung.da.options",
             entity_category="diagnostic",
             value_fn=lambda options: _option_value(options, "DeviceType"),
@@ -243,8 +239,8 @@ def _renumbered_burners(entities, numbers):
 
 
 # The NZ36K7570R's owner confirmed slots 0 and 1 are burners 1 and 2 (#609);
-# its other three slots keep their numbers. Scoped to this one model so no
-# existing entity is renamed.
+# slots 3-5 keep their numbers and it reports no slot 2. Scoped to this one
+# model so no existing entity is renamed.
 TP6X_COOKTOP_MODE = dataclasses.replace(
     COOKTOP_MODE,
     match_fn=_is_nz36k7570r,

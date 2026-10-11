@@ -1615,8 +1615,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "Auto changeover heating secondary offset"
       },
-      "cooktop_model": {
-        "name": "Cooktop model"
+      "cooktop_device_type": {
+        "name": "Device type code"
       },
       "cooktop_flex_coil": {
         "name": "Flex coil code"

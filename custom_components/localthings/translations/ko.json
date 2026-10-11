@@ -1615,8 +1615,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "자동 전환 난방 2차 편차"
       },
-      "cooktop_model": {
-        "name": "쿡탑 모델"
+      "cooktop_device_type": {
+        "name": "기기 유형 코드"
       },
       "cooktop_flex_coil": {
         "name": "플렉스 코일 코드"

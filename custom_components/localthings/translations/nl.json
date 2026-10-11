@@ -1615,8 +1615,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "Automatisch omschakelen secundaire offset verwarmen"
       },
-      "cooktop_model": {
-        "name": "Kookplaatmodel"
+      "cooktop_device_type": {
+        "name": "Apparaattypecode"
       },
       "cooktop_flex_coil": {
         "name": "Flexspoelcode"

@@ -126,7 +126,7 @@ def test_sync_status_keeps_both_burners_independent(sync):
 
 def test_legacy_mode_options_surface():
     state = _state()
-    assert state["cooktop_model"] == "NV9300K-/AA2"
+    assert state["cooktop_device_type"] == "NV9300K-/AA2"
     assert state["cooktop_paused"] is False
     assert state["cooktop_sync_control"] is False
     assert state["cooktop_flex_coil"] == "0"
@@ -185,7 +185,7 @@ def test_legacy_envelopes_bind_to_cooktop_sensors():
     assert state["power_state"] is False
     assert state["child_lock"] is False
     assert state["remote_control"] is True
-    assert state["cooktop_model"] == "NV9300K-/AA2"
+    assert state["cooktop_device_type"] == "NV9300K-/AA2"
     assert state["burner_1_state"] == "Ready"
     assert state["burner_2_state"] == "Ready"
     assert state["burner_3_pan_size"] == "Idle"

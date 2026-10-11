@@ -1615,8 +1615,8 @@
       "auto_changeover_heat_secondary_offset": {
         "name": "Automatyczne przełączanie — dodatkowe przesunięcie grzania"
       },
-      "cooktop_model": {
-        "name": "Model płyty grzewczej"
+      "cooktop_device_type": {
+        "name": "Kod typu urządzenia"
       },
       "cooktop_flex_coil": {
         "name": "Kod cewki Flex"
