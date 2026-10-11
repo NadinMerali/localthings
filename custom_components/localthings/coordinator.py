@@ -2669,6 +2669,18 @@ class LocalThingsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 href: spec for href, spec in stored.items() if cook.has_entries(spec)
             }
 
+    def remembered_mode_specs(self) -> dict[str, dict[str, Any]]:
+        """For diagnostics: each remembered spec, and whether the device's
+        own rep for that href currently lacks one."""
+        live = self.last_resources
+        return {
+            href: {
+                "in_use": href in live and not cook.has_entries(live[href].get(cook.MODE_SPEC)),
+                "spec": spec,
+            }
+            for href, spec in sorted(self._mode_specs.items())
+        }
+
     def _remember_mode_spec(self, href: str, rep: dict) -> None:
         """Runs from _on_rep_applied, on whichever thread applied `rep`."""
         spec = rep.get(cook.MODE_SPEC)

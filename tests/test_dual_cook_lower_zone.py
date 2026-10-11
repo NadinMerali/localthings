@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 
 from custom_components.localthings.coordinator import mode_spec_store
+from custom_components.localthings.diagnostics import async_get_config_entry_diagnostics
 from custom_components.localthings.registry.by_type import resolve
 from custom_components.localthings.registry.capabilities import cook, oven
 from custom_components.localthings.registry.registry import CAPABILITIES
@@ -333,3 +334,22 @@ async def test_a_seen_spec_is_remembered(hass: HomeAssistant, bare_coordinator) 
     view = fresh.canonical_resources(MAIN)
     assert view["/mode/vs/0"]["x.com.samsung.da.modeSpec"] == SPEC
     assert cook.startable_modes(view) == []
+
+
+async def test_diagnostics_report_the_remembered_spec(
+    hass: HomeAssistant,
+    enable_custom_integrations,
+    bare_coordinator,  # noqa: F811
+) -> None:
+    _load(bare_coordinator, _resources())
+    bare_coordinator._session = None
+    diag = await async_get_config_entry_diagnostics(hass, bare_coordinator._entry)
+    assert diag["remembered_mode_specs"] == {"/mode/vs/0": {"in_use": False, "spec": SPEC}}
+
+    bare_coordinator._observe.apply(
+        "/mode/vs/0", {"x.com.samsung.da.modeSpec": "[]"}, source="poll"
+    )
+    diag = await async_get_config_entry_diagnostics(hass, bare_coordinator._entry)
+    assert diag["remembered_mode_specs"]["/mode/vs/0"]["in_use"]
+    # `resources` stays what the device said.
+    assert diag["resources"]["/mode/vs/0"]["x.com.samsung.da.modeSpec"] == "[]"
