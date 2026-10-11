@@ -155,11 +155,14 @@ class TestRead:
 
         assert transport.read(["power", "vs", "0"], timeout=1.0) == (0x80, b"bad option")
 
-    def test_device_directory_requests_batch_representations(self, transport, monkeypatch):
+    @pytest.mark.parametrize("index", ["0", "1"])
+    def test_device_directory_requests_batch_representations(self, transport, monkeypatch, index):
+        """/device/1 too: the LCD_R18 Dual Cook's lower zone answers links
+        until asked for its batch (#597)."""
         from custom_components.localthings.registry.batch import parse_device0_batch
 
-        path = ["device", "0"]
-        href = "/temperature/current/cook/0"
+        path = ["device", index]
+        href = f"/temperature/current/cook/{index}"
         rep = {"rt": ["oic.r.temperature"], "temperature": 21}
         directory = {"links": [{"href": href, "rt": rep["rt"]}]}
         batch = [{"href": href, "rep": rep}]
@@ -186,7 +189,8 @@ class TestRead:
             (["device", "0"], 0x45, {"links": "invalid"}),
             (["device", "0"], 0x44, {"links": []}),
             (["oic", "res"], 0x45, {"links": []}),
-            (["device", "1"], 0x45, {"links": []}),
+            (["device", "x"], 0x45, {"links": []}),
+            (["uuid", "device", "0"], 0x45, {"links": []}),
             (["power", "0"], 0x45, {"value": True}),
         ],
     )
@@ -345,3 +349,30 @@ class TestTranslatesResources:
         from custom_components.localthings.transport import translates_resources
 
         assert not translates_resources({"transport": "legacy_http", "legacy_family": "TP6X_DRYER"})
+
+
+def test_a_links_only_lower_zone_is_discovered_through_its_batch(transport, monkeypatch):
+    """#597's Dual Cook answers a plain GET of /device/1 with links only;
+    through the transport, enumeration still finds the lower zone."""
+    from custom_components.localthings.registry.subdevices import enumerate_subdevices
+
+    lower = [
+        {"href": "/device/1", "rep": {"rt": ["x.com.samsung.devcol", "oic.wk.col"]}},
+        {"href": "/power/vs/1", "rep": {"x.com.samsung.da.power": "Off"}},
+        {"href": "/oven/vs/1", "rep": {"x.com.samsung.da.state": "Ready"}},
+    ]
+
+    def get(path_segs, *, timeout, query=()):
+        if list(path_segs) != ["device", "1"]:
+            return 0x84, b""
+        if query:
+            return 0x45, cbor2.dumps(lower)
+        return 0x45, cbor2.dumps({"links": [{"href": "/power/vs/1"}, {"href": "/oven/vs/1"}]})
+
+    monkeypatch.setattr(fake_of(transport), "get", get)
+    oic_res = [{"href": "/device/1"}, {"href": "/power/vs/1"}]
+
+    subdevices, fetched = enumerate_subdevices(transport, {}, oic_res)
+
+    assert [s.key for s in subdevices] == ["1"]
+    assert fetched["/oven/vs/1"] == {"x.com.samsung.da.state": "Ready"}

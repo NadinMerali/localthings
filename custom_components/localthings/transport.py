@@ -222,12 +222,15 @@ class DtlsTransport:
         path = list(path_segs)
         deadline = time.monotonic() + timeout
         code, body = _decode_read(*session.get(path, query=tuple(query), timeout=timeout))
-        # The LCD_R18 oven returns links by default; explicit batch returns
-        # the representations needed for discovery and polling. A caller
-        # that named its own query gets exactly what it asked for.
+        # The LCD_R18 oven returns links by default on /device/0 and on its
+        # lower zone's /device/1 (#597); explicit batch returns the
+        # representations needed for discovery and polling. A caller that
+        # named its own query gets exactly what it asked for.
         if (
             not query
-            and path == ["device", "0"]
+            and len(path) == 2
+            and path[0] == "device"
+            and path[1].isdigit()
             and code == 0x45
             and isinstance(body, dict)
             and isinstance(body.get("links"), list)
