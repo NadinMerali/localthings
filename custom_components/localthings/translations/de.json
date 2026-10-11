@@ -1880,6 +1880,12 @@
       "led_night_start": {
         "name": "Tür-LED-Nacht Start"
       },
+      "ice_night_end": {
+        "name": "Nachtruhemodus Eisbereitung Ende"
+      },
+      "ice_night_start": {
+        "name": "Nachtruhemodus Eisbereitung Start"
+      },
       "night_end": {
         "name": "Nachtlicht Ende"
       },

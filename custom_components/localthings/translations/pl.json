@@ -1880,6 +1880,12 @@
       "led_night_start": {
         "name": "Początek nocnego podświetlenia LED drzwi"
       },
+      "ice_night_end": {
+        "name": "Koniec nocnego cichego trybu kostkarki"
+      },
+      "ice_night_start": {
+        "name": "Początek nocnego cichego trybu kostkarki"
+      },
       "night_end": {
         "name": "Koniec oświetlenia nocnego"
       },

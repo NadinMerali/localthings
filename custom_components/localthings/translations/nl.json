@@ -1880,6 +1880,12 @@
       "led_night_start": {
         "name": "Start nachtverlichting deur-LED"
       },
+      "ice_night_end": {
+        "name": "Einde stille nachtmodus ijsmaker"
+      },
+      "ice_night_start": {
+        "name": "Start stille nachtmodus ijsmaker"
+      },
       "night_end": {
         "name": "Einde nachtverlichting"
       },

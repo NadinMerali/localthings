@@ -1880,6 +1880,12 @@
       "led_night_start": {
         "name": "도어 LED 야간 시작"
       },
+      "ice_night_end": {
+        "name": "야간 제빙 저소음 모드 종료"
+      },
+      "ice_night_start": {
+        "name": "야간 제빙 저소음 모드 시작"
+      },
       "night_end": {
         "name": "야간 조명 종료"
       },

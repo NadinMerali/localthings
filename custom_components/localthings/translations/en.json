@@ -1880,6 +1880,12 @@
       "led_night_start": {
         "name": "Door LED night start"
       },
+      "ice_night_end": {
+        "name": "Nighttime ice quiet mode end"
+      },
+      "ice_night_start": {
+        "name": "Nighttime ice quiet mode start"
+      },
       "night_end": {
         "name": "Night light end"
       },

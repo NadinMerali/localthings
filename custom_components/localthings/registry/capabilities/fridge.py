@@ -15,6 +15,7 @@ segments.
 """
 
 import datetime
+from dataclasses import dataclass
 
 from ..batch import is_stub_rep
 from ..capability import Capability
@@ -170,24 +171,6 @@ DEFINITE_TEMPERATURE_FREEZER = Capability(
             entity_category="config",
             options_field="x.com.samsung.da.definite.supportedList",
             write_fn=_definite_freezer_write,
-        ),
-    ),
-)
-
-ICEMAKER_NIGHTTIME = Capability(
-    href="/icemaker/nighttime/vs/0",
-    poll_tier="warm",
-    entities=(
-        SwitchDesc(
-            key="ice_night_mode",
-            field="ice.night.status",
-            icon="mdi:weather-night",
-            entity_category="config",
-            value_fn=lambda v: v == "On",
-            write_fn=lambda p, rep, href=None: (
-                ["icemaker", "nighttime", "vs", "0"],
-                {"ice.night.status": "On" if p == "On" else "Off"},
-            ),
         ),
     ),
 )
@@ -715,17 +698,17 @@ WELCOME_LIGHTING = Capability(
     ),
 )
 
-# Enhanced cabinet light nighttime schedule: night.starttime is an ISO
-# datetime (only the time portion matters), night.duration.minute is the
-# window length. End time is derived so both time entities write back to
-# the same resource without stepping on each other: writing start
-# preserves duration; writing end recalculates it.
+# Night windows (the cabinet light's schedule, the icemaker's "Don't make
+# ice at night"): a UTC ISO start (only the time matters), a duration in
+# minutes and the board's UTC offset. The end is derived so both time
+# entities write to the same resource without stepping on each other:
+# writing the start keeps the duration; writing the end recalculates it.
 
 _NIGHT_BRIGHTNESS_OPTIONS = ("33", "66", "100")
 
 
-def _tz_offset(rep) -> datetime.timedelta:
-    s = rep.get("timezone.offset", "+00:00")
+def _tz_offset(rep, key: str) -> datetime.timedelta:
+    s = rep.get(key, "+00:00")
     try:
         sign = 1 if s[0] == "+" else -1
         h, m = map(int, s[1:].split(":"))
@@ -744,56 +727,106 @@ def _parse_night_time(iso_str, offset=datetime.timedelta(0)) -> "datetime.time |
         return None
 
 
-def _night_start_value(rep) -> "datetime.time | None":
-    return _parse_night_time(rep.get("night.starttime"), _tz_offset(rep))
+@dataclass(frozen=True)
+class _NightWindow:
+    """Where one resource keeps its window."""
 
+    path: tuple[str, ...]
+    start: str
+    duration: str
+    offset: str
 
-def _night_end_value(rep) -> "datetime.time | None":
-    start_t = _parse_night_time(rep.get("night.starttime"), _tz_offset(rep))
-    duration_str = rep.get("night.duration.minute")
-    if start_t is None or duration_str is None:
-        return None
-    try:
-        duration = int(duration_str)
-    except (ValueError, TypeError):
-        return None
-    return (
-        (
-            datetime.datetime.combine(datetime.date.today(), start_t)
-            + datetime.timedelta(minutes=duration)
+    def start_value(self, rep) -> "datetime.time | None":
+        return _parse_night_time(rep.get(self.start), _tz_offset(rep, self.offset))
+
+    def end_value(self, rep) -> "datetime.time | None":
+        start_t = self.start_value(rep)
+        if start_t is None:
+            return None
+        try:
+            duration = int(rep.get(self.duration))
+        except (ValueError, TypeError):
+            return None
+        return (
+            (
+                datetime.datetime.combine(datetime.date.today(), start_t)
+                + datetime.timedelta(minutes=duration)
+            )
+            .time()
+            .replace(second=0)
         )
-        .time()
-        .replace(second=0)
-    )
+
+    def start_write(self, p, rep, href=None):
+        # p is local time; subtract offset to get UTC for storage
+        utc_dt = datetime.datetime.combine(datetime.date.today(), p) - _tz_offset(rep, self.offset)
+        try:
+            new_dt = datetime.datetime.fromisoformat(rep.get(self.start) or "").replace(
+                hour=utc_dt.hour, minute=utc_dt.minute, second=0
+            )
+        except (ValueError, TypeError):
+            new_dt = utc_dt
+        return list(self.path), {self.start: new_dt.strftime("%Y-%m-%dT%H:%M:%S")}
+
+    def end_write(self, p, rep, href=None):
+        # duration = end_local - start_local; offset cancels so work in local time
+        start_t = self.start_value(rep)
+        if start_t is None:
+            return None
+        start_min = start_t.hour * 60 + start_t.minute
+        end_min = p.hour * 60 + p.minute
+        return list(self.path), {self.duration: str((end_min - start_min) % (24 * 60))}
 
 
-def _night_start_write(p, rep, href=None):
-    # p is local time; subtract offset to get UTC for storage
-    offset = _tz_offset(rep)
-    utc_dt = datetime.datetime.combine(datetime.date.today(), p) - offset
-    old_iso = rep.get("night.starttime") or ""
-    try:
-        new_dt = datetime.datetime.fromisoformat(old_iso).replace(
-            hour=utc_dt.hour, minute=utc_dt.minute, second=0
-        )
-    except (ValueError, TypeError):
-        new_dt = utc_dt
-    return ["cabinet", "light", "enhanced", "vs", "0"], {
-        "night.starttime": new_dt.strftime("%Y-%m-%dT%H:%M:%S"),
-    }
+_CABINET_NIGHT = _NightWindow(
+    path=("cabinet", "light", "enhanced", "vs", "0"),
+    start="night.starttime",
+    duration="night.duration.minute",
+    offset="timezone.offset",
+)
 
+# The app shows the window next to the switch (#599, AILITE_REF_25K).
+_ICE_NIGHT = _NightWindow(
+    path=("icemaker", "nighttime", "vs", "0"),
+    start="ice.night.starttime",
+    duration="ice.night.duration",
+    offset="ice.night.timezone",
+)
 
-def _night_end_write(p, rep, href=None):
-    # duration = end_local - start_local; offset cancels so work in local time
-    start_t = _parse_night_time(rep.get("night.starttime"), _tz_offset(rep))
-    if start_t is None:
-        return None
-    start_min = start_t.hour * 60 + start_t.minute
-    end_min = p.hour * 60 + p.minute
-    duration = (end_min - start_min) % (24 * 60)
-    return ["cabinet", "light", "enhanced", "vs", "0"], {
-        "night.duration.minute": str(duration),
-    }
+ICEMAKER_NIGHTTIME = Capability(
+    href="/icemaker/nighttime/vs/0",
+    poll_tier="warm",
+    entities=(
+        SwitchDesc(
+            key="ice_night_mode",
+            field="ice.night.status",
+            icon="mdi:weather-night",
+            entity_category="config",
+            value_fn=lambda v: v == "On",
+            write_fn=lambda p, rep, href=None: (
+                ["icemaker", "nighttime", "vs", "0"],
+                {"ice.night.status": "On" if p == "On" else "Off"},
+            ),
+        ),
+        TimeDesc(
+            key="ice_night_start",
+            field="",
+            icon="mdi:clock-start",
+            entity_category="config",
+            exists_fn=lambda rep, resources: "ice.night.starttime" in rep,
+            rep_fn=_ICE_NIGHT.start_value,
+            write_fn=_ICE_NIGHT.start_write,
+        ),
+        TimeDesc(
+            key="ice_night_end",
+            field="",
+            icon="mdi:clock-end",
+            entity_category="config",
+            exists_fn=lambda rep, resources: "ice.night.duration" in rep,
+            rep_fn=_ICE_NIGHT.end_value,
+            write_fn=_ICE_NIGHT.end_write,
+        ),
+    ),
+)
 
 
 def _night_lighting_schedule_write(p, rep, href=None):
@@ -846,16 +879,16 @@ CABINET_LIGHT_ENHANCED = Capability(
             field="",
             icon="mdi:clock-start",
             entity_category="config",
-            rep_fn=_night_start_value,
-            write_fn=_night_start_write,
+            rep_fn=_CABINET_NIGHT.start_value,
+            write_fn=_CABINET_NIGHT.start_write,
         ),
         TimeDesc(
             key="night_end",
             field="",
             icon="mdi:clock-end",
             entity_category="config",
-            rep_fn=_night_end_value,
-            write_fn=_night_end_write,
+            rep_fn=_CABINET_NIGHT.end_value,
+            write_fn=_CABINET_NIGHT.end_write,
         ),
     ),
 )

@@ -1880,6 +1880,12 @@
       "led_night_start": {
         "name": "Inizio luce notturna LED sportello"
       },
+      "ice_night_end": {
+        "name": "Fine modalità silenziosa ghiaccio notturna"
+      },
+      "ice_night_start": {
+        "name": "Inizio modalità silenziosa ghiaccio notturna"
+      },
       "night_end": {
         "name": "Fine luce notturna"
       },

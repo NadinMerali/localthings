@@ -1880,6 +1880,12 @@
       "led_night_start": {
         "name": "Začátek nočního LED osvětlení dvířek"
       },
+      "ice_night_end": {
+        "name": "Konec nočního tichého režimu výroby ledu"
+      },
+      "ice_night_start": {
+        "name": "Začátek nočního tichého režimu výroby ledu"
+      },
       "night_end": {
         "name": "Konec nočního osvětlení"
       },

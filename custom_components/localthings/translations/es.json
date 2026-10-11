@@ -2249,6 +2249,12 @@
       "led_night_start": {
         "name": "Inicio de la luz nocturna de la puerta"
       },
+      "ice_night_end": {
+        "name": "Fin del modo silencioso de hielo nocturno"
+      },
+      "ice_night_start": {
+        "name": "Inicio del modo silencioso de hielo nocturno"
+      },
       "night_end": {
         "name": "Fin de la luz nocturna"
       },
