@@ -1,0 +1,52 @@
+{
+  "root": {
+    "Information": {
+      "description": "TP6X_DRYER_DRUM",
+      "modelID": "TP6X_DM9900M"
+    },
+    "Mode": {
+      "options": ["Course_01"],
+      "supportedOptions": [
+        "3018410D33EE0009C8520D33EE000948520D33EE000A58520D33EE000A28102D33EE000278520D000E000A18520D000E13E9B8520D520E0009E8410D33EE000A38410D308E000A4853ED000E33EA08000D000E13E"
+      ]
+    },
+    "Washer": {
+      "dryLevel": "Normal",
+      "dryTime": "00:00:00",
+      "dryerType": "Electricity",
+      "supportedDryLevel": ["None", "Damp", "Less", "Normal", "More", "Very"],
+      "supportedDryTime": [
+        "00:00:00",
+        "00:20:00",
+        "00:30:00",
+        "00:40:00",
+        "00:50:00",
+        "01:00:00"
+      ],
+      "supportedWaterTemperature": [
+        "None",
+        "ExtraLow",
+        "Low",
+        "MediumLow",
+        "Medium",
+        "High"
+      ],
+      "waterTemperature": "Medium",
+      "wrinklePrevent": "Off"
+    }
+  },
+  "upper": {
+    "Information": {
+      "description": "TP6X_DRYER_TOPLOAD",
+      "modelID": "TP6X_DM9900M"
+    },
+    "Mode": {
+      "options": ["Course_AD"],
+      "supportedOptions": ["0ADAEAFB0"]
+    },
+    "Washer": {
+      "dryerType": "Electricity"
+    }
+  },
+  "seeds_note": "Constructed reduced fixture from live TP6X_DM9900M section reads: the retained Information, Mode, and Washer fields are as observed; other resources are omitted. This is not a full diagnostics export and contains no serial, device, or network identifiers."
+}

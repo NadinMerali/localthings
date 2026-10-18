@@ -16,7 +16,7 @@ from typing import ClassVar
 
 import pytest
 
-from custom_components.localthings.legacy_http import http_status_to_coap
+from custom_components.localthings.legacy_http import http_status_to_coap, table_for
 from custom_components.localthings.legacy_http_transport import LegacyHttpTransport
 from custom_components.localthings.registry.capabilities import cook
 
@@ -155,6 +155,51 @@ class TestSeed:
         assert code == 0x45
         assert reps["/st/washercourse/vs/0"] == {PREFIX + "st.courseTable": "Table_00"}
         assert len(_FakeConnection.log) - before == 3
+
+    def test_indexed_dryer_seed_carries_its_course_table(self, transport, monkeypatch):
+        transport._family = "TP6X_DRYER_DRUM"
+        transport._table = table_for(transport._family)
+        record = {
+            "id": "1",
+            "description": "TP6X_DRYER_TOPLOAD",
+            "Mode": {"options": ["Course_AD"], "supportedOptions": ["0ADAEAFB0"]},
+            "Washer": {"dryerType": "Electricity"},
+        }
+        monkeypatch.setattr(
+            transport,
+            "_sibling_record",
+            lambda index, deadline: (0x45, record, [{"id": "1"}]),
+        )
+
+        code, body = transport.read(["device", "1"], timeout=10.0)
+        reps = {entry["href"]: entry["rep"] for entry in body}
+
+        assert code == 0x45
+        assert reps["/st/dryercourse/vs/1"] == {PREFIX + "st.courseTable": "Table_00"}
+
+    def test_indexed_washer_seed_does_not_gain_a_course_table(self, transport, monkeypatch):
+        transport._family = "TP6X_WASHER"
+        transport._table = table_for(transport._family)
+        record = {
+            "id": "1",
+            "description": "TP6X_WASHER",
+            "Mode": {
+                "options": ["Course_5B"],
+                "supportedOptions": ["35B847E933FA53F5C841E923FA53F"],
+            },
+            "Washer": {"waterTemperature": "60"},
+        }
+        monkeypatch.setattr(
+            transport,
+            "_sibling_record",
+            lambda index, deadline: (0x45, record, [{"id": "1"}]),
+        )
+
+        code, body = transport.read(["device", "1"], timeout=10.0)
+        reps = {entry["href"]: entry["rep"] for entry in body}
+
+        assert code == 0x45
+        assert not any(PREFIX + "st.courseTable" in rep for rep in reps.values())
 
     def test_the_seed_carries_the_power_flag_from_the_model_id(self, transport, monkeypatch):
         """A WW6500 refuses remote power, and says so in its modelID, so the
